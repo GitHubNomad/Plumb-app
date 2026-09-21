@@ -1,8 +1,8 @@
-# Grok App
+# Plumb App
 
 React web app workspace (TanStack Start + Tailwind) shared so other developers can collaborate on GitHub.
 
-**Repo:** [github.com/GitHubNomad/grok-app](https://github.com/GitHubNomad/grok-app)
+**Repo:** [github.com/GitHubNomad/Plumb-app](https://github.com/GitHubNomad/Plumb-app)
 
 ## Stack
 
@@ -18,8 +18,8 @@ React web app workspace (TanStack Start + Tailwind) shared so other developers c
 Requires **Node.js 22+**.
 
 ```bash
-git clone https://github.com/GitHubNomad/grok-app.git
-cd grok-app
+git clone https://github.com/GitHubNomad/Plumb-app.git
+cd Plumb-app
 npm install
 npm run dev
 ```
@@ -51,9 +51,9 @@ App UI lives under `src/routes/` once those files are added. Shared helpers are 
 
 ## Collaborating
 
-This repo is **private**. To add a teammate:
+To add a teammate:
 
-1. Open [github.com/GitHubNomad/grok-app/settings/access](https://github.com/GitHubNomad/grok-app/settings/access)
+1. Open [github.com/GitHubNomad/Plumb-app/settings/access](https://github.com/GitHubNomad/Plumb-app/settings/access)
 2. **Invite a collaborator** and grant **Write** (or **Triage** if they only need issues)
 3. They clone the repo and work on a feature branch
 4. Open a pull request into `main` — see [CONTRIBUTING.md](CONTRIBUTING.md)

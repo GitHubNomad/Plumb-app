@@ -5,8 +5,8 @@ Thanks for helping with this project. Short loop: branch, change, PR.
 ## Setup
 
 ```bash
-git clone https://github.com/GitHubNomad/grok-app.git
-cd grok-app
+git clone https://github.com/GitHubNomad/Plumb-app.git
+cd Plumb-app
 npm install
 ```
 
