@@ -35,3 +35,5 @@ screenshots/
 AGENTS.md
 AGENTS.project.md
 startup.sh
+.project_id
+.vercel/

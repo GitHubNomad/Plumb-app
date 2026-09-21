@@ -1,17 +1,24 @@
-# Plumb App
+# Plumb
 
-React web app workspace (TanStack Start + Tailwind) shared so other developers can collaborate on GitHub.
+A daily alignment coach. Short mobility sessions, a timer, a check-in, and a streak — no gym required.
 
 **Repo:** [github.com/GitHubNomad/Plumb-app](https://github.com/GitHubNomad/Plumb-app)
 
+## What it does
+
+- **Today** — recommended session, weekly strip, streak
+- **Library** — six guided sessions (4–11 minutes)
+- **Session player** — holds, reps, pause, skip, complete
+- **Coach** — tight / stacked / easy check-in plus a hotspot, then a pointed session
+- **Progress** — streak, time, recent sessions (saved on this device)
+
+Plumb is mobility coaching, not medical advice.
+
 ## Stack
 
-- React 19
-- TanStack Start / Router / Query
-- Tailwind CSS v4
-- Vite 8
-- TypeScript (strict)
-- Optional Postgres (Kysely) and Better Auth — off unless you wire them in
+React 19, TanStack Start / Router, Tailwind CSS v4, Zustand, Vite 8, TypeScript.
+
+Progress lives in `localStorage` (`plumb-coach`). No account required.
 
 ## Getting started
 
@@ -30,35 +37,17 @@ Then open the URL Vite prints (default port **8080**).
 
 | Script | Description |
 | --- | --- |
-| `npm run dev` | Start the Vite dev server on port 8080 |
+| `npm run dev` | Dev server on port 8080 |
 | `npm run build` | Production build |
-| `npm run typecheck` | TypeScript (`tsc --noEmit`) |
+| `npm run typecheck` | TypeScript |
 | `npm run lint` | ESLint |
 | `npm test` | Unit tests |
-| `npm run format` | Prettier |
-
-## Project layout
-
-```
-src/            App source (routes, components, lib)
-server/         Server middleware
-scripts/        Dev, migrate, and build helpers
-migrations/     SQL migrations (auth schema lives here)
-public/         Static assets
-```
-
-App UI lives under `src/routes/` once those files are added. Shared helpers are in `src/lib/`.
 
 ## Collaborating
 
-To add a teammate:
-
-1. Open [github.com/GitHubNomad/Plumb-app/settings/access](https://github.com/GitHubNomad/Plumb-app/settings/access)
-2. **Invite a collaborator** and grant **Write** (or **Triage** if they only need issues)
-3. They clone the repo and work on a feature branch
-4. Open a pull request into `main` — see [CONTRIBUTING.md](CONTRIBUTING.md)
-
-Do not commit secrets. Copy `.env.example` if one is added later; never commit a real `.env`.
+1. Open [Collaborators](https://github.com/GitHubNomad/Plumb-app/settings/access)
+2. Invite with **Write**
+3. Branch from `main`, open a pull request — see [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## License
 

@@ -1,0 +1,40 @@
+export type Focus = "neck" | "shoulders" | "spine" | "hips" | "full";
+
+export type StepKind = "hold" | "reps" | "flow";
+
+export type LineFeel = "tight" | "ok" | "loose";
+
+export type Exercise = {
+  id: string;
+  name: string;
+  cue: string;
+  setup: string;
+  kind: StepKind;
+  focus: Focus;
+  seconds?: number;
+  reps?: number;
+};
+
+export type Program = {
+  id: string;
+  title: string;
+  blurb: string;
+  minutes: number;
+  focus: Focus;
+  vibe: string;
+  steps: Exercise[];
+};
+
+export type SessionLog = {
+  id: string;
+  date: string;
+  programId: string;
+  minutes: number;
+  at: number;
+};
+
+export type CheckIn = {
+  date: string;
+  line: LineFeel;
+  hotspot: Focus | "none";
+};
