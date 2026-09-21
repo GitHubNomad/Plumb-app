@@ -6,6 +6,8 @@ export type LineFeel = "tight" | "ok" | "loose";
 
 export type Clearance = "clear" | "cautious";
 
+export type Caution = "inversion" | "neck-endrange";
+
 export type Exercise = {
   id: string;
   name: string;
@@ -15,6 +17,7 @@ export type Exercise = {
   focus: Focus;
   seconds?: number;
   reps?: number;
+  caution?: Caution;
 };
 
 export type Program = {
@@ -44,10 +47,23 @@ export type CheckIn = {
   hotspot: Focus | "none";
 };
 
+export type ClearanceLog = {
+  date: string;
+  clearance: Clearance;
+};
+
 export type BackupV1 = {
   version: 1;
   exportedAt: string;
   logs: SessionLog[];
   checkIns: CheckIn[];
   clearance: Clearance | null;
+};
+
+export type BackupV2 = {
+  version: 2;
+  exportedAt: string;
+  logs: SessionLog[];
+  checkIns: CheckIn[];
+  clearances: ClearanceLog[];
 };

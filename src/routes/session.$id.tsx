@@ -3,9 +3,9 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Check, ChevronLeft, Pause, Play } from "lucide-react";
 import { Disclaimer } from "@/components/disclaimer";
 import { PoseMark } from "@/components/plumb-mark";
-import { programById } from "@/lib/plumb/catalog";
+import { adaptProgram, programById } from "@/lib/plumb/catalog";
 import { SCREENING_QUESTION } from "@/lib/plumb/copy";
-import { computeStreak, usePlumb } from "@/lib/plumb/store";
+import { computeStreak, selectTodayClearance, usePlumb } from "@/lib/plumb/store";
 import type { Clearance, Exercise, Program } from "@/lib/plumb/types";
 import { useWakeLock } from "@/lib/plumb/wake-lock";
 import { cn } from "@/lib/utils";
@@ -14,18 +14,19 @@ export const Route = createFileRoute("/session/$id")({ component: SessionPage })
 
 function SessionPage() {
   const { id } = Route.useParams();
-  const program = programById(id);
+  const raw = programById(id);
   const navigate = useNavigate();
   const completeSession = usePlumb((s) => s.completeSession);
   const logs = usePlumb((s) => s.logs);
-  const clearance = usePlumb((s) => s.clearance);
+  const clearances = usePlumb((s) => s.clearances);
   const setClearance = usePlumb((s) => s.setClearance);
+  const todayClearance = selectTodayClearance(clearances);
 
   const [step, setStep] = useState(0);
   const [finished, setFinished] = useState(false);
   const [status, setStatus] = useState<Record<string, "done" | "skipped">>({});
 
-  if (!program) {
+  if (!raw) {
     return (
       <main className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
         <h1 className="font-display text-2xl font-semibold">No such session</h1>
@@ -36,7 +37,11 @@ function SessionPage() {
     );
   }
 
-  const session = program;
+  if (!todayClearance) {
+    return <ClearanceGate onChoose={setClearance} />;
+  }
+
+  const session = adaptProgram(raw, todayClearance === "cautious");
   const exercise = session.steps[step];
   const isLast = step >= session.steps.length - 1;
   const skippedIds = Object.entries(status)
@@ -78,10 +83,6 @@ function SessionPage() {
     setFinished(true);
   }
 
-  if (!clearance) {
-    return <ClearanceGate onChoose={setClearance} />;
-  }
-
   if (finished) {
     const held = doneIds.length > 0 || Object.values(status).includes("done");
     const streak = computeStreak(logs);
@@ -96,7 +97,7 @@ function SessionPage() {
         </h1>
         <p className="mt-3 max-w-sm text-sm leading-relaxed text-pine-fg/80">
           {held
-            ? `${program.title} is done${skipCount ? `, ${skipCount} step${skipCount === 1 ? "" : "s"} skipped` : ""}. Streak is ${streak} day${streak === 1 ? "" : "s"}.`
+            ? `${raw.title} is done${skipCount ? `, ${skipCount} step${skipCount === 1 ? "" : "s"} skipped` : ""}. Streak is ${streak} day${streak === 1 ? "" : "s"}.`
             : "Tap-throughs don't move the streak. Come back when you can hold one."}
         </p>
         <div className="mt-auto flex flex-col gap-3">
@@ -130,16 +131,20 @@ function SessionPage() {
         </button>
         <div className="min-w-0 flex-1">
           <p className="truncate text-[11px] font-medium tracking-widest text-muted uppercase">
-            {program.title}
+            {raw.title}
           </p>
           <p className="text-xs text-muted tabular-nums">
-            {step + 1} / {program.steps.length}
+            {step + 1} / {session.steps.length}
           </p>
         </div>
       </header>
 
+      {session.cautionNote ? (
+        <p className="px-5 pt-2 text-sm text-copper">{session.cautionNote}</p>
+      ) : null}
+
       <ol className="mx-5 mt-2 flex gap-1" aria-hidden="true">
-        {program.steps.map((s, i) => (
+        {session.steps.map((s, i) => (
           <li
             key={s.id}
             className={cn(
@@ -161,7 +166,6 @@ function SessionPage() {
           key={exercise.id}
           exercise={exercise}
           nextLabel={isLast ? "Finish" : "Next"}
-          cautious={clearance === "cautious"}
           onSkip={() => advance("skipped")}
           onDone={() => advance("done")}
         />
@@ -214,13 +218,11 @@ function ClearanceGate({ onChoose }: { onChoose: (c: Clearance) => void }) {
 function ExerciseStep({
   exercise,
   nextLabel,
-  cautious,
   onSkip,
   onDone,
 }: {
   exercise: Exercise;
   nextLabel: string;
-  cautious: boolean;
   onSkip: () => void;
   onDone: () => void;
 }) {
@@ -234,9 +236,22 @@ function ExerciseStep({
   const [pausedMs, setPausedMs] = useState<number | null>(null);
   const [left, setLeft] = useState(total);
   const [repsDone, setRepsDone] = useState(false);
+  const [announce, setAnnounce] = useState(exercise.name);
+  const completedRef = useRef(false);
 
   const running = timed && endsAt !== null && pausedMs === null && left > 0;
   useWakeLock(running);
+
+  useEffect(() => {
+    setAnnounce(exercise.name);
+  }, [exercise.name]);
+
+  useEffect(() => {
+    if (timed && left === 0 && !completedRef.current) {
+      completedRef.current = true;
+      setAnnounce("Hold complete");
+    }
+  }, [timed, left]);
 
   useEffect(() => {
     if (!timed || totalMs <= 0) return;
@@ -282,6 +297,9 @@ function ExerciseStep({
 
   return (
     <section className="flex flex-1 flex-col px-5 pt-6 pb-8">
+      <p className="sr-only" aria-live="polite" aria-atomic="true">
+        {announce}
+      </p>
       <div className="flex items-start gap-3">
         <PoseMark focus={exercise.focus} />
         <div>
@@ -298,19 +316,11 @@ function ExerciseStep({
 
       <p className="mt-4 text-sm font-medium text-fg">{exercise.setup}</p>
       <p className="mt-2 text-sm leading-relaxed text-muted">{exercise.cue}</p>
-      {cautious ? (
-        <p className="mt-2 text-sm text-copper">You flagged caution. Skip the moment it hurts.</p>
-      ) : null}
 
       <div className="flex flex-1 flex-col items-center justify-center py-6">
         {timed ? (
           <>
-            <TimerRing
-              progress={progress}
-              label={left === 0 ? "Held" : clock}
-              left={left}
-              total={total}
-            />
+            <TimerRing progress={progress} label={left === 0 ? "Held" : clock} />
             <button
               type="button"
               onClick={togglePause}
@@ -361,29 +371,10 @@ function ExerciseStep({
   );
 }
 
-function TimerRing({
-  progress,
-  label,
-  left,
-  total,
-}: {
-  progress: number;
-  label: string;
-  left: number;
-  total: number;
-}) {
+function TimerRing({ progress, label }: { progress: number; label: string }) {
   const r = 54;
   const c = 2 * Math.PI * r;
   const offset = c * (1 - Math.min(1, Math.max(0, progress)));
-  const live =
-    left === 0
-      ? "Hold complete"
-      : left <= 5 || left % 10 === 0 || left === total
-        ? `${left} seconds remaining`
-        : "";
-  const announced = useRef(live);
-  if (live) announced.current = live;
-
   return (
     <div className="relative size-44">
       <svg viewBox="0 0 128 128" className="size-full -rotate-90" aria-hidden="true">
@@ -403,9 +394,6 @@ function TimerRing({
       <span className="absolute inset-0 flex items-center justify-center font-display text-4xl tabular-nums">
         {label}
       </span>
-      <p className="sr-only" aria-live="polite" aria-atomic="true">
-        {announced.current}
-      </p>
     </div>
   );
 }

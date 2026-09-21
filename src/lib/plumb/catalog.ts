@@ -1,4 +1,4 @@
-import type { Focus, Program } from "./types";
+import type { Exercise, Focus, Program } from "./types";
 
 export const FOCUS_LABEL: Record<Focus, string> = {
   neck: "Neck",
@@ -61,6 +61,7 @@ export const PROGRAMS: Program[] = [
         kind: "reps",
         focus: "neck",
         reps: 8,
+        caution: "neck-endrange",
       },
     ],
   },
@@ -89,6 +90,7 @@ export const PROGRAMS: Program[] = [
         kind: "reps",
         focus: "neck",
         reps: 10,
+        caution: "neck-endrange",
       },
       {
         id: "dr-blade",
@@ -116,6 +118,7 @@ export const PROGRAMS: Program[] = [
         kind: "flow",
         focus: "neck",
         seconds: 50,
+        caution: "neck-endrange",
       },
     ],
   },
@@ -199,6 +202,7 @@ export const PROGRAMS: Program[] = [
         kind: "hold",
         focus: "spine",
         seconds: 40,
+        caution: "inversion",
       },
       {
         id: "sl-roll",
@@ -208,6 +212,7 @@ export const PROGRAMS: Program[] = [
         kind: "flow",
         focus: "spine",
         seconds: 40,
+        caution: "inversion",
       },
       {
         id: "sl-book",
@@ -290,6 +295,7 @@ export const PROGRAMS: Program[] = [
         kind: "hold",
         focus: "spine",
         seconds: 50,
+        caution: "inversion",
       },
       {
         id: "ew-savasana",
@@ -327,6 +333,7 @@ export const PROGRAMS: Program[] = [
         kind: "reps",
         focus: "neck",
         reps: 6,
+        caution: "neck-endrange",
       },
       {
         id: "fm-blade",
@@ -373,3 +380,65 @@ const ROTATION = [
 export function rotationIdForDate(date = new Date()): string {
   return ROTATION[date.getDay()] ?? "morning-plumb";
 }
+
+const HOLD_SCALE = 0.7;
+const MIN_HOLD = 15;
+const MIN_STEPS = 3;
+
+export type AdaptedProgram = Program & {
+  cautionNote: string | null;
+  removedIds: string[];
+};
+
+function shortenHold(step: Exercise): Exercise {
+  if (!step.seconds) return step;
+  return { ...step, seconds: Math.max(MIN_HOLD, Math.round(step.seconds * HOLD_SCALE)) };
+}
+
+function unflaggedPool(focus: Focus): Exercise[] {
+  const all = PROGRAMS.flatMap((p) => p.steps).filter((s) => !s.caution);
+  const same = all.filter((s) => s.focus === focus);
+  const rest = all.filter((s) => s.focus !== focus);
+  return [...same, ...rest];
+}
+
+/** Drop inversion / neck-endrange work and shorten remaining holds when the user is cautious. */
+export function adaptProgram(program: Program, cautious: boolean): AdaptedProgram {
+  if (!cautious) {
+    return { ...program, cautionNote: null, removedIds: [] };
+  }
+
+  const removed = program.steps.filter((s) => s.caution);
+  const kept = program.steps.filter((s) => !s.caution).map(shortenHold);
+  const used = new Set(kept.map((s) => s.id));
+  const steps = [...kept];
+  let added = 0;
+
+  if (steps.length < MIN_STEPS) {
+    for (const sub of unflaggedPool(program.focus)) {
+      if (steps.length >= MIN_STEPS) break;
+      if (used.has(sub.id)) continue;
+      steps.push(shortenHold(sub));
+      used.add(sub.id);
+      added += 1;
+    }
+  }
+
+  const removedN = removed.length;
+  let cautionNote: string | null = null;
+  if (removedN > 0 && added > 0) {
+    cautionNote = `Adjusted for caution — ${added} step${added === 1 ? "" : "s"} swapped.`;
+  } else if (removedN > 0) {
+    cautionNote = `Adjusted for caution — ${removedN} step${removedN === 1 ? "" : "s"} swapped.`;
+  } else {
+    cautionNote = "Adjusted for caution — holds shortened.";
+  }
+
+  return {
+    ...program,
+    steps,
+    cautionNote,
+    removedIds: removed.map((s) => s.id),
+  };
+}
+

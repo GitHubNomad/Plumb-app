@@ -2,12 +2,26 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { todayKey } from "@/lib/utils";
 import { programById, rotationIdForDate } from "./catalog";
-import type { BackupV1, CheckIn, Clearance, Focus, LineFeel, SessionLog } from "./types";
+import type {
+  BackupV2,
+  CheckIn,
+  Clearance,
+  ClearanceLog,
+  Focus,
+  LineFeel,
+  SessionLog,
+} from "./types";
+
+type PersistedV1 = {
+  logs?: SessionLog[];
+  checkIns?: CheckIn[];
+  clearance?: Clearance | null;
+};
 
 type PlumbState = {
   logs: SessionLog[];
   checkIns: CheckIn[];
-  clearance: Clearance | null;
+  clearances: ClearanceLog[];
   completeSession: (entry: Omit<SessionLog, "id" | "date" | "at">) => void;
   saveCheckIn: (line: LineFeel, hotspot: Focus | "none") => void;
   setClearance: (clearance: Clearance) => void;
@@ -70,7 +84,7 @@ export const usePlumb = create<PlumbState>()(
     (set, get) => ({
       logs: [],
       checkIns: [],
-      clearance: null,
+      clearances: [],
       completeSession: (entry) => {
         const date = todayKey();
         set({
@@ -85,46 +99,91 @@ export const usePlumb = create<PlumbState>()(
         const rest = get().checkIns.filter((c) => c.date !== date);
         set({ checkIns: [...rest, { date, line, hotspot }] });
       },
-      setClearance: (clearance) => set({ clearance }),
+      setClearance: (clearance) => {
+        const date = todayKey();
+        const rest = get().clearances.filter((c) => c.date !== date);
+        set({ clearances: [...rest, { date, clearance }] });
+      },
       replaceFromBackup: (data) => {
         const parsed = parseBackup(data);
         if (!parsed) return false;
         set({
           logs: parsed.logs,
           checkIns: parsed.checkIns,
-          clearance: parsed.clearance,
+          clearances: parsed.clearances,
         });
         return true;
       },
     }),
-    { name: "plumb-coach", skipHydration: true },
+    {
+      name: "plumb-coach",
+      skipHydration: true,
+      version: 2,
+      migrate: (persisted, version) => {
+        const raw = (persisted ?? {}) as PersistedV1 & { clearances?: ClearanceLog[] };
+        if (version < 2) {
+          return {
+            logs: Array.isArray(raw.logs) ? raw.logs : [],
+            checkIns: Array.isArray(raw.checkIns) ? raw.checkIns : [],
+            clearances: [],
+          };
+        }
+        return {
+          logs: Array.isArray(raw.logs) ? raw.logs : [],
+          checkIns: Array.isArray(raw.checkIns) ? raw.checkIns : [],
+          clearances: Array.isArray(raw.clearances) ? raw.clearances : [],
+        };
+      },
+    },
   ),
 );
 
-export function buildBackup(): BackupV1 {
-  const { logs, checkIns, clearance } = usePlumb.getState();
+export function buildBackup(): BackupV2 {
+  const { logs, checkIns, clearances } = usePlumb.getState();
   return {
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     logs,
     checkIns,
-    clearance,
+    clearances,
   };
 }
 
-export function parseBackup(data: unknown): BackupV1 | null {
+export function parseBackup(data: unknown): BackupV2 | null {
   if (!data || typeof data !== "object") return null;
-  const raw = data as Partial<BackupV1>;
-  if (raw.version !== 1) return null;
-  if (!Array.isArray(raw.logs) || !Array.isArray(raw.checkIns)) return null;
-  const clearance = raw.clearance === "clear" || raw.clearance === "cautious" ? raw.clearance : null;
-  return {
-    version: 1,
-    exportedAt: typeof raw.exportedAt === "string" ? raw.exportedAt : new Date().toISOString(),
-    logs: raw.logs.filter(isSessionLog),
-    checkIns: raw.checkIns.filter(isCheckIn),
-    clearance,
-  };
+  const raw = data as { version?: number };
+  if (raw.version === 1) {
+    const v1 = data as {
+      exportedAt?: string;
+      logs?: unknown;
+      checkIns?: unknown;
+    };
+    if (!Array.isArray(v1.logs) || !Array.isArray(v1.checkIns)) return null;
+    return {
+      version: 2,
+      exportedAt: typeof v1.exportedAt === "string" ? v1.exportedAt : new Date().toISOString(),
+      logs: v1.logs.filter(isSessionLog),
+      checkIns: v1.checkIns.filter(isCheckIn),
+      clearances: [],
+    };
+  }
+  if (raw.version === 2) {
+    const v2 = data as {
+      exportedAt?: string;
+      logs?: unknown;
+      checkIns?: unknown;
+      clearances?: unknown;
+    };
+    if (!Array.isArray(v2.logs) || !Array.isArray(v2.checkIns)) return null;
+    return {
+      version: 2,
+      exportedAt: typeof v2.exportedAt === "string" ? v2.exportedAt : new Date().toISOString(),
+      logs: v2.logs.filter(isSessionLog),
+      checkIns: v2.checkIns.filter(isCheckIn),
+      clearances: Array.isArray(v2.clearances) ? v2.clearances.filter(isClearanceLog) : [],
+    };
+  }
+  return null;
 }
 
 function isSessionLog(value: unknown): value is SessionLog {
@@ -145,9 +204,23 @@ function isCheckIn(value: unknown): value is CheckIn {
   return typeof v.date === "string" && typeof v.line === "string";
 }
 
+function isClearanceLog(value: unknown): value is ClearanceLog {
+  if (!value || typeof value !== "object") return false;
+  const v = value as ClearanceLog;
+  return (
+    typeof v.date === "string" &&
+    (v.clearance === "clear" || v.clearance === "cautious")
+  );
+}
+
 export function selectTodayCheckIn(checkIns: CheckIn[]): CheckIn | undefined {
   const date = todayKey();
   return checkIns.find((c) => c.date === date);
+}
+
+export function selectTodayClearance(clearances: ClearanceLog[]): Clearance | undefined {
+  const date = todayKey();
+  return clearances.find((c) => c.date === date)?.clearance;
 }
 
 export function selectTodayDone(logs: SessionLog[]): boolean {

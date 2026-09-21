@@ -6,17 +6,26 @@ import {
   buildBackup,
   computeLongest,
   computeStreak,
+  parseBackup,
   programTitle,
   selectWeek,
   sessionHeld,
   usePlumb,
 } from "@/lib/plumb/store";
+import type { BackupV2 } from "@/lib/plumb/types";
 import { formatMinutes, todayKey } from "@/lib/utils";
 
 export const Route = createFileRoute("/progress")({ component: Progress });
 
+type PendingImport = {
+  backup: BackupV2;
+  incomingSessions: number;
+  incomingCheckIns: number;
+};
+
 function Progress() {
   const logs = usePlumb((s) => s.logs);
+  const checkIns = usePlumb((s) => s.checkIns);
   const replaceFromBackup = usePlumb((s) => s.replaceFromBackup);
   const week = selectWeek(logs);
   const streak = computeStreak(logs);
@@ -25,6 +34,7 @@ function Progress() {
   const recent = [...logs].reverse().slice(0, 12);
   const fileRef = useRef<HTMLInputElement>(null);
   const [backupMsg, setBackupMsg] = useState<string | null>(null);
+  const [pending, setPending] = useState<PendingImport | null>(null);
 
   function downloadBackup() {
     const blob = new Blob([JSON.stringify(buildBackup(), null, 2)], {
@@ -36,19 +46,47 @@ function Progress() {
     a.download = `plumb-backup-${todayKey()}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    setBackupMsg("Backup saved to your downloads. Stays on this device unless you copy it.");
+    setBackupMsg("Backup saved to your downloads. If nothing appeared, copy it instead.");
+  }
+
+  async function copyBackup() {
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(buildBackup(), null, 2));
+      setBackupMsg("Backup copied. Paste it into a note or file.");
+    } catch {
+      setBackupMsg("Couldn't copy. Try Download backup.");
+    }
   }
 
   function onPickFile(file: File | undefined) {
     if (!file) return;
     void file.text().then((text) => {
       try {
-        const ok = replaceFromBackup(JSON.parse(text));
-        setBackupMsg(ok ? "Backup restored." : "That file isn't a Plumb backup.");
+        const parsed = parseBackup(JSON.parse(text));
+        if (!parsed) {
+          setBackupMsg("That file isn't a Plumb backup.");
+          setPending(null);
+          return;
+        }
+        setBackupMsg(null);
+        setPending({
+          backup: parsed,
+          incomingSessions: parsed.logs.length,
+          incomingCheckIns: parsed.checkIns.length,
+        });
       } catch {
         setBackupMsg("That file isn't a Plumb backup.");
+        setPending(null);
       }
     });
+    if (fileRef.current) fileRef.current.value = "";
+  }
+
+  function confirmImport() {
+    if (!pending) return;
+    const ok = replaceFromBackup(pending.backup);
+    setPending(null);
+    setBackupMsg(ok ? "Backup restored." : "That file isn't a Plumb backup.");
   }
 
   return (
@@ -118,20 +156,27 @@ function Progress() {
       <section className="mt-8">
         <h2 className="font-display text-lg font-semibold">Backup</h2>
         <p className="mt-1 text-sm leading-relaxed text-muted">
-          Logs stay on this phone. Download a copy before you wipe it.
+          Logs stay on this phone. Download or copy a backup before you wipe it.
         </p>
-        <div className="mt-3 flex gap-3">
+        <div className="mt-3 flex flex-wrap gap-3">
           <button
             type="button"
             onClick={downloadBackup}
-            className="min-h-11 flex-1 rounded-md bg-pine text-sm font-semibold text-pine-fg transition-transform duration-150 active:scale-[0.96]"
+            className="min-h-11 min-w-28 flex-1 rounded-md bg-pine text-sm font-semibold text-pine-fg transition-transform duration-150 active:scale-[0.96]"
           >
             Download backup
           </button>
           <button
             type="button"
+            onClick={() => void copyBackup()}
+            className="min-h-11 min-w-28 flex-1 rounded-md bg-surface text-sm font-semibold text-fg shadow-[var(--shadow-border)] transition-transform duration-150 active:scale-[0.96]"
+          >
+            Copy backup
+          </button>
+          <button
+            type="button"
             onClick={() => fileRef.current?.click()}
-            className="min-h-11 flex-1 rounded-md bg-surface text-sm font-semibold text-fg shadow-[var(--shadow-border)] transition-transform duration-150 active:scale-[0.96]"
+            className="min-h-11 min-w-28 flex-1 rounded-md bg-surface text-sm font-semibold text-fg shadow-[var(--shadow-border)] transition-transform duration-150 active:scale-[0.96]"
           >
             Restore
           </button>
@@ -143,6 +188,32 @@ function Progress() {
             onChange={(e) => onPickFile(e.target.files?.[0])}
           />
         </div>
+        {pending ? (
+          <div className="mt-4 rounded-lg bg-surface p-4">
+            <p className="text-sm leading-relaxed text-fg">
+              Replace {logs.length} session{logs.length === 1 ? "" : "s"} and {checkIns.length}{" "}
+              check-in{checkIns.length === 1 ? "" : "s"} with {pending.incomingSessions} session
+              {pending.incomingSessions === 1 ? "" : "s"} and {pending.incomingCheckIns} check-in
+              {pending.incomingCheckIns === 1 ? "" : "s"}?
+            </p>
+            <div className="mt-3 flex gap-3">
+              <button
+                type="button"
+                onClick={confirmImport}
+                className="min-h-11 flex-1 rounded-md bg-copper text-sm font-semibold text-copper-fg transition-transform duration-150 active:scale-[0.96]"
+              >
+                Replace
+              </button>
+              <button
+                type="button"
+                onClick={() => setPending(null)}
+                className="min-h-11 flex-1 rounded-md text-sm font-medium text-muted"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : null}
         {backupMsg ? <p className="mt-2 text-sm text-muted">{backupMsg}</p> : null}
       </section>
       <Disclaimer className="mt-6" />
