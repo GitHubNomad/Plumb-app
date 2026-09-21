@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { Disclaimer } from "@/components/disclaimer";
 import { FOCUS_LABEL, PROGRAMS } from "@/lib/plumb/catalog";
 import { PoseMark } from "@/components/plumb-mark";
 
@@ -32,6 +33,7 @@ function Library() {
           </li>
         ))}
       </ul>
+      <Disclaimer className="mt-6" />
     </main>
   );
 }

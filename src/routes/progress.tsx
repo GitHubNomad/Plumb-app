@@ -1,23 +1,55 @@
+import { useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Check } from "lucide-react";
+import { Disclaimer } from "@/components/disclaimer";
 import {
+  buildBackup,
   computeLongest,
   computeStreak,
   programTitle,
   selectWeek,
+  sessionHeld,
   usePlumb,
 } from "@/lib/plumb/store";
-import { formatMinutes } from "@/lib/utils";
+import { formatMinutes, todayKey } from "@/lib/utils";
 
 export const Route = createFileRoute("/progress")({ component: Progress });
 
 function Progress() {
   const logs = usePlumb((s) => s.logs);
+  const replaceFromBackup = usePlumb((s) => s.replaceFromBackup);
   const week = selectWeek(logs);
   const streak = computeStreak(logs);
   const longest = computeLongest(logs);
-  const minutes = logs.reduce((n, l) => n + l.minutes, 0);
+  const minutes = logs.filter(sessionHeld).reduce((n, l) => n + l.minutes, 0);
   const recent = [...logs].reverse().slice(0, 12);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [backupMsg, setBackupMsg] = useState<string | null>(null);
+
+  function downloadBackup() {
+    const blob = new Blob([JSON.stringify(buildBackup(), null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `plumb-backup-${todayKey()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setBackupMsg("Backup saved to your downloads. Stays on this device unless you copy it.");
+  }
+
+  function onPickFile(file: File | undefined) {
+    if (!file) return;
+    void file.text().then((text) => {
+      try {
+        const ok = replaceFromBackup(JSON.parse(text));
+        setBackupMsg(ok ? "Backup restored." : "That file isn't a Plumb backup.");
+      } catch {
+        setBackupMsg("That file isn't a Plumb backup.");
+      }
+    });
+  }
 
   return (
     <main className="flex flex-1 flex-col px-5 pt-8 pb-6">
@@ -63,17 +95,57 @@ function Progress() {
         </div>
       ) : (
         <ul className="mt-3 divide-y divide-line rounded-lg bg-surface">
-          {recent.map((log) => (
-            <li key={log.id} className="flex items-baseline justify-between gap-3 px-4 py-3">
-              <div>
-                <p className="text-sm font-medium">{programTitle(log.programId)}</p>
-                <p className="text-xs text-muted">{log.date}</p>
-              </div>
-              <p className="text-sm tabular-nums text-muted">{log.minutes} min</p>
-            </li>
-          ))}
+          {recent.map((log) => {
+            const skips = log.skippedStepIds?.length ?? 0;
+            const held = sessionHeld(log);
+            return (
+              <li key={log.id} className="flex items-baseline justify-between gap-3 px-4 py-3">
+                <div>
+                  <p className="text-sm font-medium">{programTitle(log.programId)}</p>
+                  <p className="text-xs text-muted">
+                    {log.date}
+                    {skips ? ` · ${skips} skipped` : ""}
+                    {!held ? " · tap-through" : ""}
+                  </p>
+                </div>
+                <p className="text-sm tabular-nums text-muted">{log.minutes} min</p>
+              </li>
+            );
+          })}
         </ul>
       )}
+
+      <section className="mt-8">
+        <h2 className="font-display text-lg font-semibold">Backup</h2>
+        <p className="mt-1 text-sm leading-relaxed text-muted">
+          Logs stay on this phone. Download a copy before you wipe it.
+        </p>
+        <div className="mt-3 flex gap-3">
+          <button
+            type="button"
+            onClick={downloadBackup}
+            className="min-h-11 flex-1 rounded-md bg-pine text-sm font-semibold text-pine-fg transition-transform duration-150 active:scale-[0.96]"
+          >
+            Download backup
+          </button>
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            className="min-h-11 flex-1 rounded-md bg-surface text-sm font-semibold text-fg shadow-[var(--shadow-border)] transition-transform duration-150 active:scale-[0.96]"
+          >
+            Restore
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="application/json,.json"
+            className="sr-only"
+            onChange={(e) => onPickFile(e.target.files?.[0])}
+          />
+        </div>
+        {backupMsg ? <p className="mt-2 text-sm text-muted">{backupMsg}</p> : null}
+      </section>
+      <Disclaimer className="mt-6" />
     </main>
   );
 }

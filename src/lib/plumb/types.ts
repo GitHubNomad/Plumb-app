@@ -4,6 +4,8 @@ export type StepKind = "hold" | "reps" | "flow";
 
 export type LineFeel = "tight" | "ok" | "loose";
 
+export type Clearance = "clear" | "cautious";
+
 export type Exercise = {
   id: string;
   name: string;
@@ -31,10 +33,21 @@ export type SessionLog = {
   programId: string;
   minutes: number;
   at: number;
+  /** Present on new logs. Older logs count as held. */
+  stepCount?: number;
+  skippedStepIds?: string[];
 };
 
 export type CheckIn = {
   date: string;
   line: LineFeel;
   hotspot: Focus | "none";
+};
+
+export type BackupV1 = {
+  version: 1;
+  exportedAt: string;
+  logs: SessionLog[];
+  checkIns: CheckIn[];
+  clearance: Clearance | null;
 };

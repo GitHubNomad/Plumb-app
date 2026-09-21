@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { Disclaimer } from "@/components/disclaimer";
 import { PoseMark } from "@/components/plumb-mark";
 import { FOCUS_LABEL, programById } from "@/lib/plumb/catalog";
 import { checkInReply, greeting, LINE_OPTIONS } from "@/lib/plumb/coach";
@@ -32,7 +33,7 @@ function Coach() {
       <p className="text-[11px] font-medium tracking-widest text-muted uppercase">Coach</p>
       <h1 className="mt-1 font-display text-3xl font-semibold">{greeting()} How's the line?</h1>
       <p className="mt-2 max-w-sm text-sm leading-relaxed text-muted">
-        Honest check-in. I'll point you at a session. No lectures.
+        Honest check-in. I'll point you at a session. Not a diagnosis.
       </p>
 
       <section className="mt-6">
@@ -110,6 +111,7 @@ function Coach() {
       ) : (
         <p className="mt-8 text-sm text-muted">Tap a feel to start. Hotspot is optional.</p>
       )}
+      <Disclaimer className="mt-6" />
     </main>
   );
 }

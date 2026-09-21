@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, Check } from "lucide-react";
+import { Disclaimer } from "@/components/disclaimer";
 import { PlumbMark, PoseMark } from "@/components/plumb-mark";
 import { FOCUS_LABEL, programById } from "@/lib/plumb/catalog";
 import { dailyLine, greeting } from "@/lib/plumb/coach";
@@ -106,9 +107,7 @@ function Home() {
           <span className="font-medium text-fg">Check in with the coach →</span>
         </Link>
 
-        <p className="pb-2 text-[11px] leading-relaxed text-muted">
-          Plumb is mobility coaching, not medical advice. Skip anything that hurts.
-        </p>
+        <Disclaimer className="pb-2" />
       </section>
     </main>
   );
