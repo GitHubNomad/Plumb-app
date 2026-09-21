@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+.node_modules.tmp.*
+.node_modules.lock
+
+# Build / framework output
+dist/
+.output/
+.vinxi/
+.nitro/
+.tanstack/
+.vite/
+.cache/
+coverage/
+
+# Environment and secrets — never commit these
+.env
+.env.*
+!.env.example
+
+# Logs and OS
+*.log
+.DS_Store
+Thumbs.db
+
+# Editor
+.idea/
+.vscode/
+*.swp
+
+# Local sandbox / preview artifacts (not part of the app)
+.grok/
+artifacts/
+screenshots/
+AGENTS.md
+AGENTS.project.md
+startup.sh
