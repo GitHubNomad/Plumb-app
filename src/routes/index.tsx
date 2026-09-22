@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, Check } from "lucide-react";
 import { Disclaimer } from "@/components/disclaimer";
-import { PlumbMark, PoseMark } from "@/components/plumb-mark";
+import { PoseMark } from "@/components/plumb-mark";
 import { FOCUS_LABEL, programById } from "@/lib/plumb/catalog";
 import { dailyLine, greeting } from "@/lib/plumb/coach";
 import {
@@ -26,42 +26,52 @@ function Home() {
 
   return (
     <main className="flex flex-1 flex-col">
-      <header className="bg-pine px-5 pb-8 pt-7 text-pine-fg">
-        <div className="stagger-in flex flex-col gap-6">
-          <div className="flex items-center justify-between">
-            <PlumbMark invert />
-            <p className="text-xs font-medium tracking-wide text-pine-fg/70">{formatDayLabel()}</p>
-          </div>
-          <div>
-            <p className="text-sm text-pine-fg/70">{greeting()} I'm your coach.</p>
-            <h1 className="mt-1 font-display text-[2rem] leading-[1.15] font-semibold">
-              {doneToday ? "Line held." : "Stand the line."}
-            </h1>
-            <p className="mt-3 max-w-sm text-sm leading-relaxed text-pine-fg/80">{dailyLine()}</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex h-14 min-w-14 flex-col items-center justify-center rounded-md bg-pine-fg/10 px-3">
-              <span className="font-display text-2xl leading-none tabular-nums">{streak}</span>
-              <span className="mt-0.5 text-[10px] tracking-wide text-pine-fg/65 uppercase">
-                streak
-              </span>
+      <header>
+        <div className="relative">
+          <img
+            src="/og.jpg"
+            alt="Plumb. Root. Brace. Lift."
+            className="h-auto w-full"
+          />
+        </div>
+        <div className="bg-pine px-5 pt-5 pb-6 text-pine-fg">
+          <div className="stagger-in flex flex-col gap-5">
+            <div>
+              <div className="flex items-baseline justify-between gap-3">
+                <p className="text-sm text-pine-fg/70">{greeting()} I'm your coach.</p>
+                <p className="shrink-0 text-[11px] font-medium tracking-wide text-pine-fg/70">
+                  {formatDayLabel()}
+                </p>
+              </div>
+              <h1 className="mt-1 font-display text-[2rem] leading-[1.15] font-semibold">
+                {doneToday ? "Line held." : "Stand the line."}
+              </h1>
+              <p className="mt-3 max-w-sm text-sm leading-relaxed text-pine-fg/80">{dailyLine()}</p>
             </div>
-            <ol className="flex flex-1 justify-between gap-1">
-              {week.map((d) => (
-                <li key={d.key} className="flex flex-col items-center gap-1">
-                  <span
-                    className={
-                      d.done
-                        ? "flex size-7 items-center justify-center rounded-full bg-copper text-copper-fg"
-                        : "flex size-7 items-center justify-center rounded-full bg-pine-fg/10 text-pine-fg/55"
-                    }
-                  >
-                    {d.done ? <Check className="size-3.5" strokeWidth={3} /> : null}
-                  </span>
-                  <span className="text-[10px] tracking-wide text-pine-fg/55">{d.label}</span>
-                </li>
-              ))}
-            </ol>
+            <div className="flex items-center gap-3">
+              <div className="flex h-14 min-w-14 flex-col items-center justify-center rounded-md bg-pine-fg/10 px-3">
+                <span className="font-display text-2xl leading-none tabular-nums">{streak}</span>
+                <span className="mt-0.5 text-[10px] tracking-wide text-pine-fg/65 uppercase">
+                  streak
+                </span>
+              </div>
+              <ol className="flex flex-1 justify-between gap-1">
+                {week.map((d) => (
+                  <li key={d.key} className="flex flex-col items-center gap-1">
+                    <span
+                      className={
+                        d.done
+                          ? "flex size-7 items-center justify-center rounded-full bg-copper text-copper-fg"
+                          : "flex size-7 items-center justify-center rounded-full bg-pine-fg/10 text-pine-fg/55"
+                      }
+                    >
+                      {d.done ? <Check className="size-3.5" strokeWidth={3} /> : null}
+                    </span>
+                    <span className="text-[10px] tracking-wide text-pine-fg/55">{d.label}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
           </div>
         </div>
       </header>

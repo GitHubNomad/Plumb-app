@@ -14,9 +14,9 @@ export const Route = createRootRoute({
       { title: APP_NAME },
       {
         name: "description",
-        content: "Plumb — a daily alignment coach. Short sessions, a true vertical, no gym required.",
+        content: "Plumb — Root. Brace. Lift. A daily alignment coach.",
       },
-      { name: "theme-color", content: "#1F3329" },
+      { name: "theme-color", content: "#2A2A28" },
     ],
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
