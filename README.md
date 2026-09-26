@@ -46,7 +46,7 @@ One-time setup, done in the browser and never pasted anywhere else:
    not the Google-login one. Then My Profile → API Tokens → Create Token → "Edit Cloudflare
    Workers" template, limited to that account and the `isocline.ai` zone.
 2. GitHub repo → Settings → Secrets and variables → Actions: add `CLOUDFLARE_API_TOKEN`.
-   The account is pinned in `wrangler.jsonc`, so a `CLOUDFLARE_ACCOUNT_ID` secret is optional.
+   The account id is pinned in `wrangler.jsonc`; no account-id secret is needed.
 3. Optional: Settings → Environments → `production` → require a reviewer, so a deploy waits
    for a tap of approval.
 
