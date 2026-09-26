@@ -8,6 +8,10 @@
     // Any path that isn't a file gets index.html, so /session/spine-line loads directly.
     "not_found_handling": "single-page-application"
   },
+  // Production lives only on the custom domain; the workers.dev subdomain carries PR previews
+  // (pr-<n>-plumb.<account-subdomain>.workers.dev) and nothing else.
+  "workers_dev": false,
+  "preview_urls": true,
   // Custom domain on the isocline.ai zone. Cloudflare creates the DNS record on first deploy.
   // Keep SITE_URL in src/routes/__root.tsx in step with this.
   "routes": [{ "pattern": "plumb.isocline.ai", "custom_domain": true }]

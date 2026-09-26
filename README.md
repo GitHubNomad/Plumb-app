@@ -1,54 +1,64 @@
 # Plumb
 
-A daily alignment coach. Short mobility sessions, a timer, a check-in, and a streak — no gym required.
+A daily posture and mobility coach. Short timed sessions for the neck, shoulders, spine and
+hips, a morning check-in that picks the session, and a streak that only counts work you
+actually held.
 
-**Repo:** [github.com/GitHubNomad/Plumb-app](https://github.com/GitHubNomad/Plumb-app)
+**Everything stays on the phone.** Sessions, check-ins and the daily screening answer live in
+`localStorage` under `plumb-coach`. There is no account and no server-side data. Progress →
+Backup downloads or copies a JSON file, and Restore reads one back after asking first.
 
-## What it does
-
-- **Today** — recommended session, weekly strip, streak
-- **Library** — six guided sessions (4–11 minutes)
-- **Session player** — holds, reps, pause, skip, complete
-- **Coach** — tight / stacked / easy check-in plus a hotspot, then a pointed session
-- **Progress** — streak, time, recent sessions (saved on this device)
-
-Plumb is mobility coaching, not medical advice.
+Live at **https://plumb.isocline.ai** once deployed.
 
 ## Stack
 
-React 19, TanStack Start / Router, Tailwind CSS v4, Zustand, Vite 8, TypeScript.
+React 19, TanStack Router/Start (SPA mode), Tailwind v4, Vite 8, zustand. It builds to a
+static site in `dist/client/` and is served by Cloudflare Workers Static Assets
+(`wrangler.jsonc`).
 
-Progress lives in `localStorage` (`plumb-coach`). No account required.
+## Run it
 
-## Getting started
+Node 22 (`.nvmrc`).
 
-Requires **Node.js 22+**.
-
-```bash
-git clone https://github.com/GitHubNomad/Plumb-app.git
-cd Plumb-app
-npm install
-npm run dev
-```
-
-Then open the URL Vite prints (default port **8080**).
-
-### Scripts
-
-| Script | Description |
+| Command | What it does |
 | --- | --- |
-| `npm run dev` | Dev server on port 8080 |
-| `npm run build` | Production build |
-| `npm run typecheck` | TypeScript |
-| `npm run lint` | ESLint |
-| `npm test` | Unit tests |
+| `npm run dev` | Dev server on :8080 |
+| `npm run build` | Static build to `dist/client/` |
+| `npm run preview` | Serve the build with wrangler on :8787, the same runtime as production |
+| `npm test` | Unit tests (Vitest) |
+| `npm run test:e2e` | End-to-end tests (Playwright, Pixel 7 profile). Needs a build first |
+| `npm run check` | Everything above, in the order CI runs it |
 
-## Collaborating
+## Deploy from a phone
 
-1. Open [Collaborators](https://github.com/GitHubNomad/Plumb-app/settings/access)
-2. Invite with **Write**
-3. Branch from `main`, open a pull request — see [CONTRIBUTING.md](CONTRIBUTING.md)
+All deploys go through GitHub Actions (`.github/workflows/`), and every one runs the full test
+suite first.
 
-## License
+- **Merge to `main`**: deploys to production.
+- **Open a pull request**: uploads a preview version. The link is in the run summary.
+- **Redeploy**: GitHub app → Actions → Deploy → Run workflow (branch `main`).
+- **Undo**: GitHub app → Actions → Rollback → Run workflow. Leave the version blank to go back
+  one deploy.
 
-[MIT](LICENSE)
+One-time setup, done in the browser and never pasted anywhere else:
+
+1. Cloudflare → My Profile → API Tokens → Create Token → "Edit Cloudflare Workers" template,
+   limited to your account and the `isocline.ai` zone.
+2. GitHub repo → Settings → Secrets and variables → Actions: add `CLOUDFLARE_API_TOKEN` and
+   `CLOUDFLARE_ACCOUNT_ID`.
+3. Optional: Settings → Environments → `production` → require a reviewer, so a deploy waits
+   for a tap of approval.
+
+The first deploy creates the `plumb.isocline.ai` DNS record automatically.
+
+## Safety rules in the code
+
+- A daily screening question gates every session. Answering "yes" swaps inversions and
+  end-range neck work for gentler steps and shortens holds (`adaptProgram` in
+  `src/lib/plumb/catalog.ts`). Change it only with a test.
+- A session where every step was skipped is not logged and doesn't move the streak.
+- The exercise cues are deliberately conservative. Keep them that way.
+
+## Icons
+
+`node scripts/make-icons.mjs` renders `public/icons/` from the plumb-bob mark.
