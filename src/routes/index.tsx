@@ -31,6 +31,8 @@ function Home() {
           <img
             src="/og.jpg"
             alt="Plumb. Root. Brace. Lift."
+            width={1200}
+            height={630}
             className="h-auto w-full"
           />
         </div>
