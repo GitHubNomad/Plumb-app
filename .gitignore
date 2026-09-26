@@ -6,8 +6,6 @@ node_modules/
 # Build / framework output
 dist/
 .output/
-.vinxi/
-.nitro/
 .tanstack/
 .vite/
 .cache/
@@ -28,13 +26,8 @@ Thumbs.db
 .vscode/
 *.swp
 
-# Local sandbox / preview artifacts (not part of the app)
-.grok/
-artifacts/
-screenshots/
-AGENTS.md
-AGENTS.project.md
-startup.sh
-.project_id
-.vercel/
-attachments/
+# Tooling output
+.wrangler/
+playwright-report/
+test-results/
+e2e/.auth/

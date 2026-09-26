@@ -1,0 +1,14 @@
+{
+  // Plumb is static: no Worker script, just the built SPA served by Workers Static Assets.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "plumb",
+  "compatibility_date": "2026-09-25",
+  "assets": {
+    "directory": "./dist/client",
+    // Any path that isn't a file gets index.html, so /session/spine-line loads directly.
+    "not_found_handling": "single-page-application"
+  },
+  // Custom domain on the isocline.ai zone. Cloudflare creates the DNS record on first deploy.
+  // Keep SITE_URL in src/routes/__root.tsx in step with this.
+  "routes": [{ "pattern": "plumb.isocline.ai", "custom_domain": true }]
+}
