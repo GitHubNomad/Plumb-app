@@ -42,10 +42,11 @@ suite first.
 
 One-time setup, done in the browser and never pasted anywhere else:
 
-1. Cloudflare → My Profile → API Tokens → Create Token → "Edit Cloudflare Workers" template,
-   limited to your account and the `isocline.ai` zone.
-2. GitHub repo → Settings → Secrets and variables → Actions: add `CLOUDFLARE_API_TOKEN` and
-   `CLOUDFLARE_ACCOUNT_ID`.
+1. Sign in to Cloudflare as **githubnomad@proton.me**, the account that owns `isocline.ai`,
+   not the Google-login one. Then My Profile → API Tokens → Create Token → "Edit Cloudflare
+   Workers" template, limited to that account and the `isocline.ai` zone.
+2. GitHub repo → Settings → Secrets and variables → Actions: add `CLOUDFLARE_API_TOKEN`.
+   The account is pinned in `wrangler.jsonc`, so a `CLOUDFLARE_ACCOUNT_ID` secret is optional.
 3. Optional: Settings → Environments → `production` → require a reviewer, so a deploy waits
    for a tap of approval.
 

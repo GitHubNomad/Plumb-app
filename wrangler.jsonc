@@ -2,6 +2,9 @@
   // Plumb is static: no Worker script, just the built SPA served by Workers Static Assets.
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "plumb",
+  // The githubnomad@proton.me account, which owns isocline.ai. Pinned so a token from the
+  // other (Gmail/SSO) account fails loudly instead of deploying there (Hivemind/papercuts.md).
+  "account_id": "49bc7b50cd82e81980c8521d66a0996e",
   "compatibility_date": "2026-09-25",
   "assets": {
     "directory": "./dist/client",
