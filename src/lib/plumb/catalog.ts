@@ -383,11 +383,11 @@ export function rotationIdForDate(date = new Date()): string {
 
 const HOLD_SCALE = 0.7;
 const MIN_HOLD = 15;
-const MIN_STEPS = 3;
 
 export type AdaptedProgram = Program & {
   cautionNote: string | null;
   removedIds: string[];
+  substitutedIds: string[];
 };
 
 function shortenHold(step: Exercise): Exercise {
@@ -395,50 +395,63 @@ function shortenHold(step: Exercise): Exercise {
   return { ...step, seconds: Math.max(MIN_HOLD, Math.round(step.seconds * HOLD_SCALE)) };
 }
 
-function unflaggedPool(focus: Focus): Exercise[] {
-  const all = PROGRAMS.flatMap((p) => p.steps).filter((s) => !s.caution);
-  const same = all.filter((s) => s.focus === focus);
-  const rest = all.filter((s) => s.focus !== focus);
-  return [...same, ...rest];
+/**
+ * Unflagged steps from the whole catalog, best substitute first: same focus as the removed
+ * step, then the program's focus, then anything. Within each band, timed work (holds and
+ * flows) ranks ahead of reps so a thinned program keeps its time under tension.
+ */
+function substituteCandidates(removed: Exercise, programFocus: Focus): Exercise[] {
+  const band = (s: Exercise) =>
+    s.focus === removed.focus ? 0 : s.focus === programFocus ? 1 : 2;
+  const timed = (s: Exercise) => (s.seconds ? 0 : 1);
+  return PROGRAMS.flatMap((p) => p.steps)
+    .filter((s) => !s.caution)
+    .sort((a, b) => band(a) - band(b) || timed(a) - timed(b));
 }
 
-/** Drop inversion / neck-endrange work and shorten remaining holds when the user is cautious. */
+function plural(n: number, word: string): string {
+  return `${n} ${word}${n === 1 ? "" : "s"}`;
+}
+
+/**
+ * Cautious mode: replace each inversion / neck-endrange step one-for-one with the nearest
+ * unflagged step, and shorten every hold. The note reports removals and substitutions
+ * separately so it never claims a swap that didn't happen.
+ */
 export function adaptProgram(program: Program, cautious: boolean): AdaptedProgram {
   if (!cautious) {
-    return { ...program, cautionNote: null, removedIds: [] };
+    return { ...program, cautionNote: null, removedIds: [], substitutedIds: [] };
   }
 
-  const removed = program.steps.filter((s) => s.caution);
-  const kept = program.steps.filter((s) => !s.caution).map(shortenHold);
-  const used = new Set(kept.map((s) => s.id));
-  const steps = [...kept];
-  let added = 0;
+  const used = new Set(program.steps.filter((s) => !s.caution).map((s) => s.id));
+  const removedIds: string[] = [];
+  const substitutedIds: string[] = [];
+  const steps: Exercise[] = [];
 
-  if (steps.length < MIN_STEPS) {
-    for (const sub of unflaggedPool(program.focus)) {
-      if (steps.length >= MIN_STEPS) break;
-      if (used.has(sub.id)) continue;
-      steps.push(shortenHold(sub));
+  for (const step of program.steps) {
+    if (!step.caution) {
+      steps.push(shortenHold(step));
+      continue;
+    }
+    removedIds.push(step.id);
+    const sub = substituteCandidates(step, program.focus).find((s) => !used.has(s.id));
+    if (sub) {
       used.add(sub.id);
-      added += 1;
+      substitutedIds.push(sub.id);
+      steps.push(shortenHold(sub));
     }
   }
 
-  const removedN = removed.length;
-  let cautionNote: string | null = null;
-  if (removedN > 0 && added > 0) {
-    cautionNote = `Adjusted for caution — ${added} step${added === 1 ? "" : "s"} swapped.`;
-  } else if (removedN > 0) {
-    cautionNote = `Adjusted for caution — ${removedN} step${removedN === 1 ? "" : "s"} swapped.`;
-  } else {
+  const removedN = removedIds.length;
+  const subN = substitutedIds.length;
+  let cautionNote: string;
+  if (removedN === 0) {
     cautionNote = "Adjusted for caution — holds shortened.";
+  } else if (subN === removedN) {
+    cautionNote = `Adjusted for caution — ${plural(removedN, "step")} replaced with ${removedN === 1 ? "a gentler one" : "gentler ones"}, holds shortened.`;
+  } else {
+    cautionNote = `Adjusted for caution — ${plural(removedN, "step")} removed, ${subN} substituted, holds shortened.`;
   }
 
-  return {
-    ...program,
-    steps,
-    cautionNote,
-    removedIds: removed.map((s) => s.id),
-  };
+  return { ...program, steps, cautionNote, removedIds, substitutedIds };
 }
-

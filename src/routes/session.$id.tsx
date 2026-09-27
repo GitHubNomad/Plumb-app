@@ -25,6 +25,15 @@ function SessionPage() {
   const [step, setStep] = useState(0);
   const [finished, setFinished] = useState(false);
   const [status, setStatus] = useState<Record<string, "done" | "skipped">>({});
+  // One live region for the whole session. It mounts empty and is filled after each step
+  // change, so screen readers announce the new step instead of ignoring pre-filled text.
+  const [announce, setAnnounce] = useState("");
+
+  const adapted = raw && todayClearance ? adaptProgram(raw, todayClearance === "cautious") : null;
+  const stepName = adapted?.steps[step]?.name;
+  useEffect(() => {
+    if (stepName) setAnnounce(stepName);
+  }, [step, stepName]);
 
   if (!raw) {
     return (
@@ -37,11 +46,11 @@ function SessionPage() {
     );
   }
 
-  if (!todayClearance) {
+  if (!todayClearance || !adapted) {
     return <ClearanceGate onChoose={setClearance} />;
   }
 
-  const session = adaptProgram(raw, todayClearance === "cautious");
+  const session = adapted;
   const exercise = session.steps[step];
   const isLast = step >= session.steps.length - 1;
   const skippedIds = Object.entries(status)
@@ -120,6 +129,9 @@ function SessionPage() {
 
   return (
     <main className="flex min-h-dvh flex-col bg-bg">
+      <p className="sr-only" aria-live="polite" aria-atomic="true">
+        {announce}
+      </p>
       <header className="flex items-center gap-2 px-3 pt-4">
         <button
           type="button"
@@ -166,6 +178,7 @@ function SessionPage() {
           key={exercise.id}
           exercise={exercise}
           nextLabel={isLast ? "Finish" : "Next"}
+          onHoldComplete={() => setAnnounce("Hold complete")}
           onSkip={() => advance("skipped")}
           onDone={() => advance("done")}
         />
@@ -218,11 +231,13 @@ function ClearanceGate({ onChoose }: { onChoose: (c: Clearance) => void }) {
 function ExerciseStep({
   exercise,
   nextLabel,
+  onHoldComplete,
   onSkip,
   onDone,
 }: {
   exercise: Exercise;
   nextLabel: string;
+  onHoldComplete: () => void;
   onSkip: () => void;
   onDone: () => void;
 }) {
@@ -236,22 +251,17 @@ function ExerciseStep({
   const [pausedMs, setPausedMs] = useState<number | null>(null);
   const [left, setLeft] = useState(total);
   const [repsDone, setRepsDone] = useState(false);
-  const [announce, setAnnounce] = useState(exercise.name);
   const completedRef = useRef(false);
 
   const running = timed && endsAt !== null && pausedMs === null && left > 0;
   useWakeLock(running);
 
   useEffect(() => {
-    setAnnounce(exercise.name);
-  }, [exercise.name]);
-
-  useEffect(() => {
     if (timed && left === 0 && !completedRef.current) {
       completedRef.current = true;
-      setAnnounce("Hold complete");
+      onHoldComplete();
     }
-  }, [timed, left]);
+  }, [timed, left, onHoldComplete]);
 
   useEffect(() => {
     if (!timed || totalMs <= 0) return;
@@ -297,9 +307,6 @@ function ExerciseStep({
 
   return (
     <section className="flex flex-1 flex-col px-5 pt-6 pb-8">
-      <p className="sr-only" aria-live="polite" aria-atomic="true">
-        {announce}
-      </p>
       <div className="flex items-start gap-3">
         <PoseMark focus={exercise.focus} />
         <div>

@@ -10,9 +10,7 @@
 
 <!-- Commands or steps a reviewer should run. -->
 
-- [ ] `npm run typecheck`
-- [ ] `npm test`
-- [ ] `npm run lint` (if you touched JS/TS)
+- [ ] `npm run check` (typecheck, lint, unit, build, e2e)
 
 ## Notes
 

@@ -21,12 +21,14 @@ Requires **Node.js 22+**.
 | `npm run lint` | ESLint |
 | `npm test` | Unit tests |
 | `npm run build` | Production build |
+| `npm run test:e2e` | End-to-end tests (after a build) |
+| `npm run check` | Everything CI runs |
 
 ## Workflow
 
 1. Create a branch from `main`: `git checkout -b your-name/short-description`
 2. Make a focused change (one concern per PR).
-3. Run `npm run typecheck` and `npm test` before you push.
+3. Run `npm run check` before you push.
 4. Open a pull request against `main` and fill in the template.
 5. Wait for review; do not push directly to `main`.
 
