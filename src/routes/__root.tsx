@@ -1,4 +1,4 @@
-import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
+import { ClientOnly, createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell";
 import appCss from "../styles.css?url";
 
@@ -46,9 +46,14 @@ export const Route = createRootRoute({
         <HeadContent />
       </head>
       <body className="bg-bg font-sans text-fg">
-        <AppShell>
-          <Outlet />
-        </AppShell>
+        {/* Everything Plumb shows depends on the browser (localStorage history, today's date,
+            the current route), so the build-time shell can't match it. Rendering the app only
+            after hydration keeps the prerendered HTML and the first client render identical. */}
+        <ClientOnly fallback={<div className="min-h-dvh bg-bg" />}>
+          <AppShell>
+            <Outlet />
+          </AppShell>
+        </ClientOnly>
         <Scripts />
       </body>
     </html>

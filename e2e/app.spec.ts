@@ -78,3 +78,16 @@ test("no page scrolls sideways on a phone", async ({ page }) => {
     expect(overflow, path).toBeLessThanOrEqual(0);
   }
 });
+
+test.describe("no runtime or hydration errors on load", () => {
+  for (const path of ["/", "/library", "/progress", "/coach", "/session/spine-line"]) {
+    test(path, async ({ page }) => {
+      const errors: string[] = [];
+      page.on("pageerror", (e) => errors.push(e.message));
+      await page.goto(path);
+      await expect(page.getByRole("main")).toBeVisible();
+      await page.waitForTimeout(500);
+      expect(errors).toEqual([]);
+    });
+  }
+});
