@@ -1,10 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Check, ChevronLeft, Pause, Play } from "lucide-react";
+import { Check, ChevronLeft, Pause, Play, Volume2, VolumeX } from "lucide-react";
 import { Disclaimer } from "@/components/disclaimer";
 import { PoseMark } from "@/components/plumb-mark";
 import { adaptProgram, programById } from "@/lib/plumb/catalog";
 import { SCREENING_QUESTION } from "@/lib/plumb/copy";
+import {
+  calloutFor,
+  canSpeakNow,
+  speak,
+  speechSupported,
+  stopSpeaking,
+  utteranceForStep,
+} from "@/lib/plumb/speech";
 import { computeStreak, selectTodayClearance, usePlumb } from "@/lib/plumb/store";
 import type { Clearance, Exercise, Program } from "@/lib/plumb/types";
 import { useWakeLock } from "@/lib/plumb/wake-lock";
@@ -20,6 +28,8 @@ function SessionPage() {
   const logs = usePlumb((s) => s.logs);
   const clearances = usePlumb((s) => s.clearances);
   const setClearance = usePlumb((s) => s.setClearance);
+  const voice = usePlumb((s) => s.voice);
+  const setVoice = usePlumb((s) => s.setVoice);
   const todayClearance = selectTodayClearance(clearances);
 
   const [step, setStep] = useState(0);
@@ -34,6 +44,14 @@ function SessionPage() {
   useEffect(() => {
     if (stepName) setAnnounce(stepName);
   }, [step, stepName]);
+  // Leaving the session mid-sentence should not leave the coach talking.
+  useEffect(() => stopSpeaking, []);
+  const heldAny = Object.values(status).includes("done");
+  useEffect(() => {
+    if (finished && heldAny && voice) void speak("The line held.");
+    // Once, when the finish screen appears; toggling voice there shouldn't repeat it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [finished]);
 
   if (!raw) {
     return (
@@ -149,6 +167,23 @@ function SessionPage() {
             {step + 1} / {session.steps.length}
           </p>
         </div>
+        {speechSupported() ? (
+          <button
+            type="button"
+            onClick={() => {
+              const next = !voice;
+              setVoice(next);
+              // The tap counts as the user gesture Chrome needs, so the cue can start right away.
+              if (next && exercise) void speak(utteranceForStep(exercise));
+              else stopSpeaking();
+            }}
+            aria-pressed={voice}
+            aria-label="Voice coach"
+            className="inline-flex size-11 items-center justify-center rounded-md text-fg transition-transform duration-150 active:scale-[0.96]"
+          >
+            {voice ? <Volume2 className="size-5" /> : <VolumeX className="size-5 text-muted" />}
+          </button>
+        ) : null}
       </header>
 
       {session.cautionNote ? (
@@ -178,6 +213,7 @@ function SessionPage() {
           key={exercise.id}
           exercise={exercise}
           nextLabel={isLast ? "Finish" : "Next"}
+          voice={voice}
           onHoldComplete={() => setAnnounce("Hold complete")}
           onSkip={() => advance("skipped")}
           onDone={() => advance("done")}
@@ -202,7 +238,9 @@ function minutesWorked(program: Program, doneIds: string[]): number {
 function ClearanceGate({ onChoose }: { onChoose: (c: Clearance) => void }) {
   return (
     <main className="flex min-h-dvh flex-col bg-bg px-5 py-8">
-      <p className="text-[11px] font-medium tracking-widest text-muted uppercase">Before you start</p>
+      <p className="text-[11px] font-medium tracking-widest text-muted uppercase">
+        Before you start
+      </p>
       <h1 className="mt-2 font-display text-3xl font-semibold">{SCREENING_QUESTION}</h1>
       <p className="mt-3 text-sm leading-relaxed text-muted">
         Honest answer. Plumb is not clearance, diagnosis, or a substitute for a clinician.
@@ -231,12 +269,14 @@ function ClearanceGate({ onChoose }: { onChoose: (c: Clearance) => void }) {
 function ExerciseStep({
   exercise,
   nextLabel,
+  voice,
   onHoldComplete,
   onSkip,
   onDone,
 }: {
   exercise: Exercise;
   nextLabel: string;
+  voice: boolean;
   onHoldComplete: () => void;
   onSkip: () => void;
   onDone: () => void;
@@ -245,23 +285,56 @@ function ExerciseStep({
   const timed = exercise.kind !== "reps";
   const totalMs = total * 1000;
 
-  const [endsAt, setEndsAt] = useState<number | null>(() =>
-    timed && totalMs > 0 ? Date.now() + totalMs : null,
+  // With the voice coach on, a timed step waits for its cue to finish before counting down,
+  // so the hold isn't half over by the time you hear how to do it.
+  const [cueing, setCueing] = useState(
+    () => voice && timed && totalMs > 0 && speechSupported() && canSpeakNow(),
   );
-  const [pausedMs, setPausedMs] = useState<number | null>(null);
+  const [endsAt, setEndsAt] = useState<number | null>(() =>
+    timed && totalMs > 0 && !cueing ? Date.now() + totalMs : null,
+  );
+  const [pausedMs, setPausedMs] = useState<number | null>(() => (cueing ? totalMs : null));
   const [left, setLeft] = useState(total);
   const [repsDone, setRepsDone] = useState(false);
   const completedRef = useRef(false);
 
   const running = timed && endsAt !== null && pausedMs === null && left > 0;
-  useWakeLock(running);
+  useWakeLock(running || cueing);
+
+  // Read the step aloud once, on mount (the component is keyed by step). Refs, not props,
+  // because the parent rebuilds the exercise object every render. Toggling voice on
+  // mid-step is handled by the header button.
+  const mountCue = useRef(voice ? utteranceForStep(exercise) : null);
+  const cueingRef = useRef(cueing);
+  useEffect(() => {
+    const text = mountCue.current;
+    if (!text) return;
+    let cancelled = false;
+    void speak(text).then(() => {
+      if (cancelled || !cueingRef.current) return;
+      cueingRef.current = false;
+      setCueing(false);
+      setEndsAt(Date.now() + totalMs);
+      setPausedMs(null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [totalMs]);
+
+  useEffect(() => {
+    if (!voice || !running) return;
+    const line = calloutFor(left, total);
+    if (line) void speak(line);
+  }, [voice, left, total, running]);
 
   useEffect(() => {
     if (timed && left === 0 && !completedRef.current) {
       completedRef.current = true;
+      if (voice) void speak("Hold complete.");
       onHoldComplete();
     }
-  }, [timed, left, onHoldComplete]);
+  }, [timed, left, voice, onHoldComplete]);
 
   useEffect(() => {
     if (!timed || totalMs <= 0) return;
@@ -295,6 +368,8 @@ function ExerciseStep({
 
   function togglePause() {
     if (!timed || left === 0) return;
+    cueingRef.current = false;
+    setCueing(false);
     if (pausedMs !== null) {
       setEndsAt(Date.now() + pausedMs);
       setPausedMs(null);
@@ -335,7 +410,7 @@ function ExerciseStep({
               className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-md px-4 text-sm font-medium text-muted disabled:opacity-40"
             >
               {running ? <Pause className="size-4" /> : <Play className="ml-0.5 size-4" />}
-              {left === 0 ? "Done" : running ? "Pause" : "Resume"}
+              {left === 0 ? "Done" : running ? "Pause" : cueing ? "Start now" : "Resume"}
             </button>
           </>
         ) : (
@@ -344,7 +419,9 @@ function ExerciseStep({
             onClick={() => setRepsDone(true)}
             className={cn(
               "flex size-36 flex-col items-center justify-center rounded-full transition-transform duration-150 active:scale-[0.96]",
-              repsDone ? "bg-pine text-pine-fg" : "bg-surface text-fg shadow-[var(--shadow-border)]",
+              repsDone
+                ? "bg-pine text-pine-fg"
+                : "bg-surface text-fg shadow-[var(--shadow-border)]",
             )}
           >
             {repsDone ? <Check className="size-8" strokeWidth={2.4} /> : null}

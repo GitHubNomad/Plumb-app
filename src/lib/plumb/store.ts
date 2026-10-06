@@ -22,10 +22,13 @@ type PlumbState = {
   logs: SessionLog[];
   checkIns: CheckIn[];
   clearances: ClearanceLog[];
+  /** Spoken coaching during sessions. A device preference, so it stays out of backups. */
+  voice: boolean;
   completeSession: (entry: Omit<SessionLog, "id" | "date" | "at">) => void;
   saveCheckIn: (line: LineFeel, hotspot: Focus | "none") => void;
   setClearance: (clearance: Clearance) => void;
   replaceFromBackup: (data: unknown) => boolean;
+  setVoice: (voice: boolean) => void;
 };
 
 function uid(): string {
@@ -85,6 +88,7 @@ export const usePlumb = create<PlumbState>()(
       logs: [],
       checkIns: [],
       clearances: [],
+      voice: false,
       completeSession: (entry) => {
         const date = todayKey();
         set({
@@ -114,6 +118,7 @@ export const usePlumb = create<PlumbState>()(
         });
         return true;
       },
+      setVoice: (voice) => set({ voice }),
     }),
     {
       name: "plumb-coach",
