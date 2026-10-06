@@ -57,8 +57,15 @@ export function useEarbudControls(
     const url = URL.createObjectURL(silentWav());
     const audio = new Audio(url);
     audio.loop = true;
-    const keepPlaying = () => void audio.play().catch(() => {});
+    // With the setting remembered from an earlier visit, a fresh page has had no tap yet and
+    // Chrome refuses play(). Retry on the first tap instead of sitting there switched on but dead.
+    const keepPlaying = () =>
+      void audio.play().catch(() => {
+        document.addEventListener("pointerdown", keepPlaying, { once: true });
+      });
     keepPlaying();
+    // A spoken cue can take audio focus and pause the loop; without it the buttons go dead.
+    audio.addEventListener("pause", keepPlaying);
 
     const ms = navigator.mediaSession;
     const handlers: Record<(typeof ACTIONS)[number], () => void> = {
@@ -91,6 +98,8 @@ export function useEarbudControls(
       }
       ms.metadata = null;
       ms.playbackState = "none";
+      document.removeEventListener("pointerdown", keepPlaying);
+      audio.removeEventListener("pause", keepPlaying);
       audio.pause();
       audio.removeAttribute("src");
       URL.revokeObjectURL(url);

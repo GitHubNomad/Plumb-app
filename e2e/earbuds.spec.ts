@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import { programById } from "../src/lib/plumb/catalog";
-import { dayKey, seed, stepHeading } from "./helpers";
+import { dayKey, seed, stepHeading, STORE_KEY } from "./helpers";
 
 const DAY = new Date("2026-09-25T09:00:00");
 const PROGRAM = programById("morning-plumb")!;
@@ -9,8 +9,8 @@ const [FIRST, SECOND] = PROGRAM.steps;
 type Probe = { handlers: Record<string, (() => void) | null>; plays: number; title: string };
 
 /** Records Media Session handlers and audio plays instead of touching real media. */
-async function stubMedia(page: Page) {
-  await page.addInitScript(() => {
+async function stubMedia(page: Page, { refuseFirstPlay = false } = {}) {
+  await page.addInitScript((refuse) => {
     const probe: Probe = { handlers: {}, plays: 0, title: "" };
     (window as unknown as { __media: Probe }).__media = probe;
     const ms = {
@@ -26,11 +26,16 @@ async function stubMedia(page: Page) {
       },
     };
     Object.defineProperty(navigator, "mediaSession", { value: ms, configurable: true });
+    let refused = !refuse;
     HTMLMediaElement.prototype.play = function () {
+      if (!refused) {
+        refused = true;
+        return Promise.reject(new DOMException("no gesture", "NotAllowedError"));
+      }
       probe.plays += 1;
       return Promise.resolve();
     };
-  });
+  }, refuseFirstPlay);
 }
 
 const press = (page: Page, action: string) =>
@@ -45,10 +50,17 @@ const probe = (page: Page) =>
     };
   });
 
-async function start(page: Page) {
+async function start(page: Page, opts?: { refuseFirstPlay?: boolean; earbuds?: boolean }) {
   await page.clock.install({ time: DAY });
   await seed(page, { clearances: [{ date: dayKey(DAY), clearance: "clear" }] });
-  await stubMedia(page);
+  if (opts?.earbuds) {
+    await page.addInitScript((key) => {
+      const raw = JSON.parse(localStorage.getItem(key)!);
+      raw.state.earbuds = true;
+      localStorage.setItem(key, JSON.stringify(raw));
+    }, STORE_KEY);
+  }
+  await stubMedia(page, opts);
   await page.goto(`/session/${PROGRAM.id}`);
   await expect(stepHeading(page)).toHaveText(FIRST.name);
 }
@@ -103,4 +115,12 @@ test("turning it off releases the buttons", async ({ page }) => {
   await expect.poll(async () => (await probe(page)).actions.length).toBe(4);
   await toggle.click();
   await expect.poll(async () => (await probe(page)).actions.length).toBe(0);
+});
+
+test("remembered on, but refused before a tap: the first tap starts it", async ({ page }) => {
+  await start(page, { earbuds: true, refuseFirstPlay: true });
+  await expect.poll(async () => (await probe(page)).actions.length).toBe(4);
+  expect((await probe(page)).plays).toBe(0);
+  await page.getByRole("button", { name: "Pause" }).click();
+  await expect.poll(async () => (await probe(page)).plays).toBeGreaterThan(0);
 });
