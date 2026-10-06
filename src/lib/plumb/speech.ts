@@ -49,6 +49,9 @@ export function canSpeakNow(): boolean {
   return ua ? ua.hasBeenActive : true;
 }
 
+/** Held so Chrome can't garbage-collect an utterance mid-sentence (it then never fires `onend`). */
+let current: SpeechSynthesisUtterance | null = null;
+
 /**
  * Speak `text`, replacing anything still being said. Resolves when speech ends, errors, or
  * times out, so callers can wait on it without risking a hang. Resolves at once if speech
@@ -57,14 +60,17 @@ export function canSpeakNow(): boolean {
 export function speak(text: string): Promise<void> {
   if (!speechSupported() || !canSpeakNow()) return Promise.resolve();
   const synth = window.speechSynthesis;
-  synth.cancel();
+  // cancel() right before speak() can drop the new utterance on Android, so only when needed.
+  if (synth.speaking || synth.pending) synth.cancel();
   return new Promise((resolve) => {
     const u = new SpeechSynthesisUtterance(text);
+    current = u;
     u.lang = "en-US";
     let done = false;
     const finish = () => {
       if (done) return;
       done = true;
+      if (current === u) current = null;
       window.clearTimeout(timer);
       resolve();
     };
