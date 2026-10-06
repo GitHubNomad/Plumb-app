@@ -1,10 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Check, ChevronLeft, Pause, Play, Volume2, VolumeX } from "lucide-react";
+import { Check, ChevronLeft, Headphones, Pause, Play, Volume2, VolumeX } from "lucide-react";
 import { Disclaimer } from "@/components/disclaimer";
 import { PoseMark } from "@/components/plumb-mark";
 import { adaptProgram, programById } from "@/lib/plumb/catalog";
 import { SCREENING_QUESTION } from "@/lib/plumb/copy";
+import {
+  type EarbudControls,
+  mediaSessionSupported,
+  useEarbudControls,
+} from "@/lib/plumb/media-session";
 import {
   calloutFor,
   canSpeakNow,
@@ -30,6 +35,10 @@ function SessionPage() {
   const setClearance = usePlumb((s) => s.setClearance);
   const voice = usePlumb((s) => s.voice);
   const setVoice = usePlumb((s) => s.setVoice);
+  const earbuds = usePlumb((s) => s.earbuds);
+  const setEarbuds = usePlumb((s) => s.setEarbuds);
+  // The current step registers its controls here; earbud buttons call through it.
+  const controls = useRef<EarbudControls | null>(null);
   const todayClearance = selectTodayClearance(clearances);
 
   const [step, setStep] = useState(0);
@@ -52,6 +61,12 @@ function SessionPage() {
     // Once, when the finish screen appears; toggling voice there shouldn't repeat it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [finished]);
+  useEarbudControls(
+    earbuds && !!adapted && !finished,
+    controls,
+    stepName ?? "",
+    raw?.title ?? "Plumb",
+  );
 
   if (!raw) {
     return (
@@ -184,6 +199,18 @@ function SessionPage() {
             {voice ? <Volume2 className="size-5" /> : <VolumeX className="size-5 text-muted" />}
           </button>
         ) : null}
+        {mediaSessionSupported() ? (
+          <button
+            type="button"
+            onClick={() => setEarbuds(!earbuds)}
+            aria-pressed={earbuds}
+            aria-label="Earbud controls"
+            title="Earbud buttons pause and skip. Pauses other audio while on."
+            className="inline-flex size-11 items-center justify-center rounded-md text-fg transition-transform duration-150 active:scale-[0.96]"
+          >
+            <Headphones className={cn("size-5", !earbuds && "text-muted")} />
+          </button>
+        ) : null}
       </header>
 
       {session.cautionNote ? (
@@ -214,6 +241,8 @@ function SessionPage() {
           exercise={exercise}
           nextLabel={isLast ? "Finish" : "Next"}
           voice={voice}
+          controls={controls}
+          onPrevious={() => setStep((s) => Math.max(0, s - 1))}
           onHoldComplete={() => setAnnounce("Hold complete")}
           onSkip={() => advance("skipped")}
           onDone={() => advance("done")}
@@ -270,6 +299,8 @@ function ExerciseStep({
   exercise,
   nextLabel,
   voice,
+  controls,
+  onPrevious,
   onHoldComplete,
   onSkip,
   onDone,
@@ -277,6 +308,8 @@ function ExerciseStep({
   exercise: Exercise;
   nextLabel: string;
   voice: boolean;
+  controls: RefObject<EarbudControls | null>;
+  onPrevious: () => void;
   onHoldComplete: () => void;
   onSkip: () => void;
   onDone: () => void;
@@ -379,6 +412,24 @@ function ExerciseStep({
     setPausedMs(Math.max(0, endsAt - Date.now()));
     setEndsAt(null);
   }
+
+  // Earbud buttons mirror the on-screen ones. Re-registered every render so the handlers
+  // always see current state.
+  useEffect(() => {
+    controls.current = {
+      playPause: () => {
+        if (timed && left > 0) {
+          if (voice) void speak(running ? "Paused." : "Go.");
+          togglePause();
+        } else if (!timed && !repsDone) {
+          if (voice) void speak("Reps marked.");
+          setRepsDone(true);
+        }
+      },
+      next: () => (ready ? onDone() : onSkip()),
+      previous: onPrevious,
+    };
+  });
 
   return (
     <section className="flex flex-1 flex-col px-5 pt-6 pb-8">

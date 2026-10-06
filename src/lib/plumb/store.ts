@@ -24,11 +24,14 @@ type PlumbState = {
   clearances: ClearanceLog[];
   /** Spoken coaching during sessions. A device preference, so it stays out of backups. */
   voice: boolean;
+  /** Earbud and lock-screen buttons control the session. Also a device preference. */
+  earbuds: boolean;
   completeSession: (entry: Omit<SessionLog, "id" | "date" | "at">) => void;
   saveCheckIn: (line: LineFeel, hotspot: Focus | "none") => void;
   setClearance: (clearance: Clearance) => void;
   replaceFromBackup: (data: unknown) => boolean;
   setVoice: (voice: boolean) => void;
+  setEarbuds: (earbuds: boolean) => void;
 };
 
 function uid(): string {
@@ -89,6 +92,7 @@ export const usePlumb = create<PlumbState>()(
       checkIns: [],
       clearances: [],
       voice: false,
+      earbuds: false,
       completeSession: (entry) => {
         const date = todayKey();
         set({
@@ -119,6 +123,7 @@ export const usePlumb = create<PlumbState>()(
         return true;
       },
       setVoice: (voice) => set({ voice }),
+      setEarbuds: (earbuds) => set({ earbuds }),
     }),
     {
       name: "plumb-coach",
