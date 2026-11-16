@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PROGRAMS } from "./catalog";
-import { calloutFor, speechTimeoutMs, utteranceForStep } from "./speech";
+import { calloutFor, pickLocalVoice, speechTimeoutMs, utteranceForStep } from "./speech";
 import type { Exercise } from "./types";
 
 const hold: Exercise = {
@@ -54,5 +54,35 @@ describe("speechTimeoutMs", () => {
   it("scales with length and always leaves slack", () => {
     expect(speechTimeoutMs("one")).toBeGreaterThan(2000);
     expect(speechTimeoutMs("a ".repeat(50))).toBeGreaterThan(speechTimeoutMs("a ".repeat(10)));
+  });
+});
+
+describe("pickLocalVoice", () => {
+  const v = (lang: string, localService: boolean, isDefault = false) => ({
+    lang,
+    localService,
+    default: isDefault,
+  });
+
+  it("never picks a network voice, even when it is the only English one", () => {
+    expect(pickLocalVoice([v("en-US", false, true), v("fr-FR", true)])).toBeNull();
+  });
+
+  it("prefers on-device US English, then any on-device English", () => {
+    const us = v("en-US", true);
+    const gb = v("en-GB", true, true);
+    expect(pickLocalVoice([gb, v("en-US", false), us])).toBe(us);
+    expect(pickLocalVoice([v("de-DE", true), gb])).toBe(gb);
+  });
+
+  it("takes the system default among equals and accepts Android's en_US form", () => {
+    const a = v("en_US", true);
+    const b = v("en-US", true, true);
+    expect(pickLocalVoice([a, b])).toBe(b);
+    expect(pickLocalVoice([a])).toBe(a);
+  });
+
+  it("returns null for an empty list", () => {
+    expect(pickLocalVoice([])).toBeNull();
   });
 });

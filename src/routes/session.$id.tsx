@@ -13,6 +13,7 @@ import {
 import {
   calloutFor,
   canSpeakNow,
+  localVoiceAvailable,
   speak,
   speechSupported,
   stopSpeaking,
@@ -35,6 +36,15 @@ function SessionPage() {
   const setClearance = usePlumb((s) => s.setClearance);
   const voice = usePlumb((s) => s.voice);
   const setVoice = usePlumb((s) => s.setVoice);
+  // The coach only speaks with an on-device voice; say so instead of going silently quiet.
+  const [noLocalVoice, setNoLocalVoice] = useState(false);
+  useEffect(() => {
+    let live = true;
+    if (voice) void localVoiceAvailable().then((ok) => live && setNoLocalVoice(!ok));
+    return () => {
+      live = false;
+    };
+  }, [voice]);
   const earbuds = usePlumb((s) => s.earbuds);
   const setEarbuds = usePlumb((s) => s.setEarbuds);
   // The current step registers its controls here; earbud buttons call through it.
@@ -212,6 +222,13 @@ function SessionPage() {
           </button>
         ) : null}
       </header>
+
+      {voice && noLocalVoice ? (
+        <p className="px-5 pt-2 text-sm text-muted" role="status">
+          This phone has no on-device voice, so the coach stays quiet. Add one in Android
+          Settings, Text-to-speech output.
+        </p>
+      ) : null}
 
       {session.cautionNote ? (
         <p className="px-5 pt-2 text-sm text-copper">{session.cautionNote}</p>
