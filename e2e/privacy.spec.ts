@@ -72,7 +72,10 @@ test.describe("no screen talks to another origin or trips the policy", () => {
   }
 });
 
-test("a session with voice coach and earbud controls on stays on the phone", async ({ page, baseURL }) => {
+test("a session with voice coach and earbud controls on stays on the phone", async ({
+  page,
+  baseURL,
+}) => {
   const w = await watch(page, baseURL);
   const program = programById("morning-plumb")!;
   const today = dayKey(new Date());

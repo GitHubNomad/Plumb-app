@@ -38,7 +38,9 @@ async function stubSpeech(
       });
       const voices = [
         { name: "Network", lang: "en-US", localService: false, default: true },
-        ...(local ? [{ name: "On-device", lang: "en-US", localService: true, default: false }] : []),
+        ...(local
+          ? [{ name: "On-device", lang: "en-US", localService: true, default: false }]
+          : []),
       ];
       const stub = {
         speak(u: FakeUtterance) {

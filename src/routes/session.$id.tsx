@@ -46,6 +46,8 @@ function SessionPage() {
     };
   }, [voice]);
   const earbuds = usePlumb((s) => s.earbuds);
+  const lockScreenDetail = usePlumb((s) => s.lockScreenDetail);
+  const setLockScreenDetail = usePlumb((s) => s.setLockScreenDetail);
   const setEarbuds = usePlumb((s) => s.setEarbuds);
   // The current step registers its controls here; earbud buttons call through it.
   const controls = useRef<EarbudControls | null>(null);
@@ -71,11 +73,13 @@ function SessionPage() {
     // Once, when the finish screen appears; toggling voice there shouldn't repeat it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [finished]);
+  // The lock screen is visible to anyone near the phone, so by default it names nothing.
+  const stepCount = adapted?.steps.length ?? 0;
   useEarbudControls(
     earbuds && !!adapted && !finished,
     controls,
-    stepName ?? "",
-    raw?.title ?? "Plumb",
+    lockScreenDetail ? (stepName ?? "") : "Plumb session",
+    lockScreenDetail ? (raw?.title ?? "Plumb") : `Step ${step + 1} of ${stepCount}`,
   );
 
   if (!raw) {
@@ -223,10 +227,24 @@ function SessionPage() {
         ) : null}
       </header>
 
+      {earbuds && mediaSessionSupported() ? (
+        <div className="px-5 pt-2">
+          <button
+            type="button"
+            onClick={() => setLockScreenDetail(!lockScreenDetail)}
+            aria-pressed={lockScreenDetail}
+            aria-label="Exercise names on lock screen"
+            className="min-h-11 text-sm text-muted underline-offset-2 hover:underline"
+          >
+            Exercise names on lock screen: {lockScreenDetail ? "on" : "off"}
+          </button>
+        </div>
+      ) : null}
+
       {voice && noLocalVoice ? (
         <p className="px-5 pt-2 text-sm text-muted" role="status">
-          This phone has no on-device voice, so the coach stays quiet. Add one in Android
-          Settings, Text-to-speech output.
+          This phone has no on-device voice, so the coach stays quiet. Add one in Android Settings,
+          Text-to-speech output.
         </p>
       ) : null}
 

@@ -45,7 +45,8 @@ describe("buildCsp", () => {
 });
 
 describe("injectCsp", () => {
-  const headers = "/assets/*\n  Cache-Control: immutable\n\n/*\n  X-Content-Type-Options: nosniff\n";
+  const headers =
+    "/assets/*\n  Cache-Control: immutable\n\n/*\n  X-Content-Type-Options: nosniff\n";
 
   it("adds the policy to the catch-all rule", () => {
     expect(injectCsp(headers, "default-src 'none'")).toBe(

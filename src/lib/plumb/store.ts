@@ -29,6 +29,8 @@ type PlumbState = {
   earbuds: boolean;
   /** Which body figure the progress map draws. Device preference, out of backups. */
   figure: FigureKind;
+  /** Exercise names on the lock screen while earbud controls run. Off: "Plumb session". Device pref. */
+  lockScreenDetail: boolean;
   completeSession: (entry: Omit<SessionLog, "id" | "date" | "at">) => void;
   saveCheckIn: (line: LineFeel, hotspot: Focus | "none") => void;
   setClearance: (clearance: Clearance) => void;
@@ -36,6 +38,7 @@ type PlumbState = {
   setVoice: (voice: boolean) => void;
   setEarbuds: (earbuds: boolean) => void;
   setFigure: (figure: FigureKind) => void;
+  setLockScreenDetail: (lockScreenDetail: boolean) => void;
 };
 
 function uid(): string {
@@ -98,6 +101,7 @@ export const usePlumb = create<PlumbState>()(
       voice: false,
       earbuds: false,
       figure: "male",
+      lockScreenDetail: false,
       completeSession: (entry) => {
         const date = todayKey();
         set({
@@ -130,6 +134,7 @@ export const usePlumb = create<PlumbState>()(
       setVoice: (voice) => set({ voice }),
       setEarbuds: (earbuds) => set({ earbuds }),
       setFigure: (figure) => set({ figure }),
+      setLockScreenDetail: (lockScreenDetail) => set({ lockScreenDetail }),
     }),
     {
       name: "plumb-coach",
