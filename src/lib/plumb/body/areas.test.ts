@@ -39,7 +39,10 @@ describe("computeAreaLoad", () => {
   });
 
   it("leaves out skipped steps", () => {
-    const l = log("2026-11-16", "desk-reset", { stepCount: 5, skippedStepIds: ["dr-chin", "dr-look"] });
+    const l = log("2026-11-16", "desk-reset", {
+      stepCount: 5,
+      skippedStepIds: ["dr-chin", "dr-look"],
+    });
     expect(computeAreaLoad([l], 7, TODAY).neck).toBe(0);
   });
 

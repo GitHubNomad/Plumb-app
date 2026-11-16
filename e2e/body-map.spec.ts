@@ -25,7 +25,10 @@ test("a hip session tints the hips, and only inside the window", async ({ page }
   await expect(map(page).locator("[data-region=upper-trapezius]")).toHaveCount(0);
   await expect(page.locator("[data-area=hips]")).toHaveText("6");
 
-  await page.getByRole("group", { name: "Time window" }).getByRole("button", { name: "30 days" }).click();
+  await page
+    .getByRole("group", { name: "Time window" })
+    .getByRole("button", { name: "30 days" })
+    .click();
   await expect(map(page).locator("[data-region=neck][data-intensity]").first()).toBeAttached();
   await expect(page.locator("[data-area=neck]")).toHaveText("2");
 });
@@ -44,7 +47,10 @@ test("the figure defaults to male and the choice sticks", async ({ page }) => {
   await page.goto("/progress");
   const group = page.getByRole("group", { name: "Body figure" });
   await expect(map(page)).toHaveAttribute("data-figure", "male");
-  await expect(group.getByRole("button", { name: "Male", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(group.getByRole("button", { name: "Male", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
 
   await group.getByRole("button", { name: "Female" }).click();
   await expect(map(page)).toHaveAttribute("data-figure", "female");
@@ -52,17 +58,42 @@ test("the figure defaults to male and the choice sticks", async ({ page }) => {
 
   await page.reload();
   await expect(map(page)).toHaveAttribute("data-figure", "female");
-  const state = await page.evaluate((k) => JSON.parse(localStorage.getItem(k) ?? "{}").state, STORE_KEY);
+  const state = await page.evaluate(
+    (k) => JSON.parse(localStorage.getItem(k) ?? "{}").state,
+    STORE_KEY,
+  );
   expect(state.figure).toBe("female");
 });
 
 test("the figure preference stays out of backups", async ({ page }) => {
   await page.goto("/progress");
-  await page.getByRole("group", { name: "Body figure" }).getByRole("button", { name: "Female" }).click();
+  await page
+    .getByRole("group", { name: "Body figure" })
+    .getByRole("button", { name: "Female" })
+    .click();
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download backup" }).click();
   const path = await (await download).path();
   const { readFile } = await import("node:fs/promises");
   const backup = JSON.parse(await readFile(path!, "utf8"));
   expect(backup).not.toHaveProperty("figure");
+});
+
+test("the figure's licence ships with the site and is linked", async ({ page, request }) => {
+  await page.goto("/progress");
+  const link = page.getByRole("link", { name: "MuscleMap by Melih Colpan (MIT)" });
+  await expect(link).toHaveAttribute("href", "/third-party-notices.txt");
+  const res = await request.get("/third-party-notices.txt");
+  expect(res.status()).toBe(200);
+  const text = await res.text();
+  expect(text).toContain("Copyright (c) 2026 Melih Colpan");
+  expect(text).toContain("Permission is hereby granted");
+});
+
+test("a figure that fails to load says so instead of spinning", async ({ page }) => {
+  await page.route(/paths-male-[^/]*\.js$/, (route) => route.abort());
+  await page.goto("/progress");
+  await expect(page.getByTestId("body-map-error")).toHaveText(
+    "Couldn't load the body figure. Reload the page to try again.",
+  );
 });

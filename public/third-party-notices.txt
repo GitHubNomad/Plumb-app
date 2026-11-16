@@ -1,0 +1,34 @@
+Third-party notices for Plumb (https://plumb.isocline.ai)
+
+Body diagram (src/lib/plumb/body/paths-*.ts)
+
+The front and back body outlines on the Progress page come from
+MuscleMap (https://github.com/melihcolpan/MuscleMap) by Melih Colpan, used under the MIT
+License reproduced below. MuscleMap ships its path data as Swift source.
+scripts/convert-musclemap.py converts it to TypeScript. It drops the sub-groups Plumb doesn't
+draw (upper/lower chest and abs, inner/outer quad, front/rear deltoid) and leaves the remaining
+artwork unchanged.
+
+
+MIT License
+
+Copyright (c) 2026 Melih Colpan
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+

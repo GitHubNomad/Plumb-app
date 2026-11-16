@@ -10,25 +10,35 @@ const LOADERS: Record<FigureKind, () => Promise<{ default: BodyFigure }>> = {
 
 const cache = new Map<FigureKind, BodyFigure>();
 
-function useFigure(kind: FigureKind): BodyFigure | null {
-  const [figure, setFigure] = useState<BodyFigure | null>(() => cache.get(kind) ?? null);
+type FigureLoad = { figure: BodyFigure | null; failed: boolean };
+
+function useFigure(kind: FigureKind): FigureLoad {
+  const [load, setLoad] = useState<FigureLoad>(() => ({
+    figure: cache.get(kind) ?? null,
+    failed: false,
+  }));
   useEffect(() => {
     let live = true;
     const hit = cache.get(kind);
     if (hit) {
-      setFigure(hit);
+      setLoad({ figure: hit, failed: false });
       return;
     }
-    setFigure(null);
-    void LOADERS[kind]().then((m) => {
-      cache.set(kind, m.default);
-      if (live) setFigure(m.default);
-    });
+    setLoad({ figure: null, failed: false });
+    LOADERS[kind]()
+      .then((m) => {
+        cache.set(kind, m.default);
+        if (live) setLoad({ figure: m.default, failed: false });
+      })
+      .catch(() => {
+        // Usually a stale cached app after a deploy, or offline before first load.
+        if (live) setLoad({ figure: null, failed: true });
+      });
     return () => {
       live = false;
     };
   }, [kind]);
-  return figure;
+  return load;
 }
 
 /** Copper mixed into the idle muscle colour; never fully transparent so low counts still read. */
@@ -44,7 +54,14 @@ type Props = {
 };
 
 export function BodyMap({ kind, intensity, flagged }: Props) {
-  const figure = useFigure(kind);
+  const { figure, failed } = useFigure(kind);
+  if (failed) {
+    return (
+      <p className="py-6 text-center text-sm text-muted" role="status" data-testid="body-map-error">
+        Couldn't load the body figure. Reload the page to try again.
+      </p>
+    );
+  }
   return (
     <div className="grid grid-cols-2 gap-3" data-testid="body-map" data-figure={kind}>
       {(["front", "back"] as const).map((side) => (
