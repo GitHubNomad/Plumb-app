@@ -25,7 +25,10 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-      - run: npm ci
+      # No dependency install scripts: this job builds the bundle that ships, so a compromised
+      # package must not get to run code here. esbuild and workerd work from their prebuilt
+      # platform packages without their postinstall checks.
+      - run: npm ci --ignore-scripts
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
