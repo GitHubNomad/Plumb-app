@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { BookOpen, Compass, House, MessageCircle } from "lucide-react";
+import { requestPersistentStorage } from "@/lib/plumb/persistence";
 import { usePlumb } from "@/lib/plumb/store";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +18,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void usePlumb.persist.rehydrate();
+    // History lives only on this phone; ask the browser not to clear it under space pressure.
+    void requestPersistentStorage();
   }, []);
 
   return (

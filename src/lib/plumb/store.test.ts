@@ -2,11 +2,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { todayKey } from "@/lib/utils";
 import { rotationIdForDate } from "./catalog";
 import {
+  buildBackup,
   computeLongest,
   computeStreak,
   parseBackup,
   selectRecommendedId,
   sessionHeld,
+  sessionsSinceBackup,
+  usePlumb,
 } from "./store";
 import type { CheckIn, SessionLog } from "./types";
 
@@ -126,5 +129,38 @@ describe("selectRecommendedId", () => {
     const stale: CheckIn[] = [{ date: "2026-09-23", line: "tight", hotspot: "neck" }];
     expect(selectRecommendedId(stale)).toBe(rotationIdForDate());
     expect(rotationIdForDate()).toBe("desk-reset");
+  });
+});
+
+describe("sessionsSinceBackup", () => {
+  const logs = [
+    log("2026-09-01", { id: "a", at: 100 }),
+    log("2026-09-02", { id: "b", at: 200 }),
+    log("2026-09-03", { id: "c", at: 300, stepCount: 2, skippedStepIds: ["x", "y"] }),
+  ];
+
+  it("counts every held session when there has never been a backup", () => {
+    expect(sessionsSinceBackup(logs, null)).toBe(2);
+  });
+
+  it("counts only held sessions after the last backup", () => {
+    expect(sessionsSinceBackup(logs, 150)).toBe(1);
+    expect(sessionsSinceBackup(logs, 300)).toBe(0);
+  });
+});
+
+describe("backup bookkeeping", () => {
+  it("restoring a backup counts as being backed up, and the stamp stays out of backups", () => {
+    usePlumb.setState({ lastBackupAt: null });
+    const ok = usePlumb.getState().replaceFromBackup({
+      version: 2,
+      exportedAt: "2026-09-01T00:00:00Z",
+      logs: [],
+      checkIns: [],
+      clearances: [],
+    });
+    expect(ok).toBe(true);
+    expect(usePlumb.getState().lastBackupAt).toEqual(expect.any(Number));
+    expect(buildBackup()).not.toHaveProperty("lastBackupAt");
   });
 });

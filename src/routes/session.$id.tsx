@@ -19,7 +19,13 @@ import {
   stopSpeaking,
   utteranceForStep,
 } from "@/lib/plumb/speech";
-import { computeStreak, selectTodayClearance, usePlumb } from "@/lib/plumb/store";
+import {
+  BACKUP_REMINDER_EVERY,
+  computeStreak,
+  selectTodayClearance,
+  sessionsSinceBackup,
+  usePlumb,
+} from "@/lib/plumb/store";
 import type { Clearance, Exercise, Program } from "@/lib/plumb/types";
 import { useWakeLock } from "@/lib/plumb/wake-lock";
 import { cn } from "@/lib/utils";
@@ -47,6 +53,7 @@ function SessionPage() {
   }, [voice]);
   const earbuds = usePlumb((s) => s.earbuds);
   const lockScreenDetail = usePlumb((s) => s.lockScreenDetail);
+  const lastBackupAt = usePlumb((s) => s.lastBackupAt);
   const setLockScreenDetail = usePlumb((s) => s.setLockScreenDetail);
   const setEarbuds = usePlumb((s) => s.setEarbuds);
   // The current step registers its controls here; earbud buttons call through it.
@@ -143,6 +150,7 @@ function SessionPage() {
     const held = doneIds.length > 0 || Object.values(status).includes("done");
     const streak = computeStreak(logs);
     const skipCount = skippedIds.length;
+    const sinceBackup = sessionsSinceBackup(logs, lastBackupAt);
     return (
       <main className="flex min-h-dvh flex-col bg-pine px-6 py-8 text-pine-fg">
         <p className="text-[11px] font-medium tracking-widest text-pine-fg/60 uppercase">
@@ -156,6 +164,14 @@ function SessionPage() {
             ? `${raw.title} is done${skipCount ? `, ${skipCount} step${skipCount === 1 ? "" : "s"} skipped` : ""}. Streak is ${streak} day${streak === 1 ? "" : "s"}.`
             : "Tap-throughs don't move the streak. Come back when you can hold one."}
         </p>
+        {held && sinceBackup >= BACKUP_REMINDER_EVERY ? (
+          <Link
+            to="/progress"
+            className="mt-4 inline-flex min-h-11 items-center text-sm font-semibold text-pine-fg underline underline-offset-2"
+          >
+            {sinceBackup} sessions since your last backup. Back up now
+          </Link>
+        ) : null}
         <div className="mt-auto flex flex-col gap-3">
           <Link
             to="/"

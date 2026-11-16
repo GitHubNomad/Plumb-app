@@ -31,6 +31,8 @@ type PlumbState = {
   figure: FigureKind;
   /** Exercise names on the lock screen while earbud controls run. Off: "Plumb session". Device pref. */
   lockScreenDetail: boolean;
+  /** When this device last downloaded, copied or restored a backup. Device pref, out of backups. */
+  lastBackupAt: number | null;
   completeSession: (entry: Omit<SessionLog, "id" | "date" | "at">) => void;
   saveCheckIn: (line: LineFeel, hotspot: Focus | "none") => void;
   setClearance: (clearance: Clearance) => void;
@@ -39,6 +41,7 @@ type PlumbState = {
   setEarbuds: (earbuds: boolean) => void;
   setFigure: (figure: FigureKind) => void;
   setLockScreenDetail: (lockScreenDetail: boolean) => void;
+  markBackedUp: () => void;
 };
 
 function uid(): string {
@@ -57,6 +60,13 @@ export function sessionHeld(log: SessionLog): boolean {
 
 export function heldLogs(logs: SessionLog[]): SessionLog[] {
   return logs.filter(sessionHeld);
+}
+
+/** Held sessions since a backup last left this phone. History lives only here, so it's at risk. */
+export const BACKUP_REMINDER_EVERY = 10;
+
+export function sessionsSinceBackup(logs: SessionLog[], lastBackupAt: number | null): number {
+  return heldLogs(logs).filter((l) => lastBackupAt === null || l.at > lastBackupAt).length;
 }
 
 export function computeStreak(logs: SessionLog[], today = todayKey()): number {
@@ -102,6 +112,7 @@ export const usePlumb = create<PlumbState>()(
       earbuds: false,
       figure: "male",
       lockScreenDetail: false,
+      lastBackupAt: null,
       completeSession: (entry) => {
         const date = todayKey();
         set({
@@ -128,6 +139,8 @@ export const usePlumb = create<PlumbState>()(
           logs: parsed.logs,
           checkIns: parsed.checkIns,
           clearances: parsed.clearances,
+          // What's on the phone now is exactly what that backup holds.
+          lastBackupAt: Date.now(),
         });
         return true;
       },
@@ -135,6 +148,7 @@ export const usePlumb = create<PlumbState>()(
       setEarbuds: (earbuds) => set({ earbuds }),
       setFigure: (figure) => set({ figure }),
       setLockScreenDetail: (lockScreenDetail) => set({ lockScreenDetail }),
+      markBackedUp: () => set({ lastBackupAt: Date.now() }),
     }),
     {
       name: "plumb-coach",

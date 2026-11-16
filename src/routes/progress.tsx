@@ -1,8 +1,9 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Check } from "lucide-react";
 import { AreasWorked } from "@/components/areas-worked";
 import { Disclaimer } from "@/components/disclaimer";
+import { requestPersistentStorage } from "@/lib/plumb/persistence";
 import {
   buildBackup,
   computeLongest,
@@ -28,6 +29,16 @@ function Progress() {
   const logs = usePlumb((s) => s.logs);
   const checkIns = usePlumb((s) => s.checkIns);
   const replaceFromBackup = usePlumb((s) => s.replaceFromBackup);
+  const lastBackupAt = usePlumb((s) => s.lastBackupAt);
+  const markBackedUp = usePlumb((s) => s.markBackedUp);
+  const [persistent, setPersistent] = useState<boolean | null>(null);
+  useEffect(() => {
+    let live = true;
+    void requestPersistentStorage().then((p) => live && setPersistent(p));
+    return () => {
+      live = false;
+    };
+  }, []);
   const week = selectWeek(logs);
   const streak = computeStreak(logs);
   const longest = computeLongest(logs);
@@ -47,12 +58,14 @@ function Progress() {
     a.download = `plumb-backup-${todayKey()}.json`;
     a.click();
     URL.revokeObjectURL(url);
+    markBackedUp();
     setBackupMsg("Backup saved to your downloads. If nothing appeared, copy it instead.");
   }
 
   async function copyBackup() {
     try {
       await navigator.clipboard.writeText(JSON.stringify(buildBackup(), null, 2));
+      markBackedUp();
       setBackupMsg("Backup copied. Paste it into a note or file.");
     } catch {
       setBackupMsg("Couldn't copy. Try Download backup.");
@@ -160,6 +173,21 @@ function Progress() {
         <h2 className="font-display text-lg font-semibold">Backup</h2>
         <p className="mt-1 text-sm leading-relaxed text-muted">
           Logs stay on this phone. Download or copy a backup before you wipe it.
+        </p>
+        <p className="mt-2 text-xs text-muted" data-testid="backup-status">
+          Last backup:{" "}
+          {lastBackupAt
+            ? new Date(lastBackupAt).toLocaleDateString(undefined, {
+                month: "short",
+                day: "numeric",
+              })
+            : "never"}
+          .{" "}
+          {persistent === true
+            ? "This browser keeps Plumb's history until you clear its data."
+            : persistent === false
+              ? "This browser may clear Plumb's history if the phone runs low on space. Adding Plumb to the home screen usually stops that."
+              : null}
         </p>
         <div className="mt-3 flex flex-wrap gap-3">
           <button
