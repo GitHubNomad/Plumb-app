@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Check } from "lucide-react";
+import { AreasWorked } from "@/components/areas-worked";
 import { Disclaimer } from "@/components/disclaimer";
 import {
   buildBackup,
@@ -119,6 +120,8 @@ function Progress() {
         <Stat label="Best" value={String(longest)} />
         <Stat label="Time" value={formatMinutes(minutes)} />
       </dl>
+
+      <AreasWorked />
 
       <h2 className="mt-8 font-display text-lg font-semibold">Recent</h2>
       {recent.length === 0 ? (

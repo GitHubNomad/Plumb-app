@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { todayKey } from "@/lib/utils";
+import type { FigureKind } from "./body/types";
 import { programById, rotationIdForDate } from "./catalog";
 import type {
   BackupV2,
@@ -26,12 +27,15 @@ type PlumbState = {
   voice: boolean;
   /** Earbud and lock-screen buttons control the session. Also a device preference. */
   earbuds: boolean;
+  /** Which body figure the progress map draws. Device preference, out of backups. */
+  figure: FigureKind;
   completeSession: (entry: Omit<SessionLog, "id" | "date" | "at">) => void;
   saveCheckIn: (line: LineFeel, hotspot: Focus | "none") => void;
   setClearance: (clearance: Clearance) => void;
   replaceFromBackup: (data: unknown) => boolean;
   setVoice: (voice: boolean) => void;
   setEarbuds: (earbuds: boolean) => void;
+  setFigure: (figure: FigureKind) => void;
 };
 
 function uid(): string {
@@ -93,6 +97,7 @@ export const usePlumb = create<PlumbState>()(
       clearances: [],
       voice: false,
       earbuds: false,
+      figure: "male",
       completeSession: (entry) => {
         const date = todayKey();
         set({
@@ -124,6 +129,7 @@ export const usePlumb = create<PlumbState>()(
       },
       setVoice: (voice) => set({ voice }),
       setEarbuds: (earbuds) => set({ earbuds }),
+      setFigure: (figure) => set({ figure }),
     }),
     {
       name: "plumb-coach",
