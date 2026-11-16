@@ -103,3 +103,21 @@ jobs:
             echo "$path -> $code"
             [ "$code" = 200 ] || exit 1
           done
+      # Plumb's privacy promise depends on the live page being exactly what was built: Cloudflare
+      # features such as Bot Fight Mode / JavaScript detections, Rocket Loader, Email Obfuscation
+      # and Web Analytics inject scripts into HTML on the way out.
+      - name: Live page matches the build and carries its CSP
+        run: |
+          for path in / /session/spine-line; do
+            curl -sf --compressed --retry 5 --retry-delay 3 -D headers.txt -o live.html "https://plumb.isocline.ai$path"
+            if ! grep -qi '^content-security-policy:.*connect-src' headers.txt; then
+              echo "::error::$path is served without Plumb's Content-Security-Policy"
+              exit 1
+            fi
+            if ! cmp -s live.html dist/client/index.html; then
+              echo "::error::$path differs from the built index.html; something between the build and the phone is changing the page (a Cloudflare zone feature injecting a script?)"
+              diff <(sed 's/></>\n</g' dist/client/index.html) <(sed 's/></>\n</g' live.html) | head -40
+              exit 1
+            fi
+            echo "$path: CSP present, page identical to the build"
+          done
