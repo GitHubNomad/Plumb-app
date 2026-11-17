@@ -11,20 +11,50 @@ const [FIRST, SECOND] = PROGRAM.steps;
  * Swaps the real speech engine for a recorder. `autoEnd` controls whether utterances finish
  * on their own; off simulates a long cue still being read.
  */
-async function stubSpeech(page: Page, { autoEnd }: { autoEnd: boolean }) {
-  await page.addInitScript((auto) => {
-    const w = window as unknown as { __spoken: string[] };
-    w.__spoken = [];
-    const stub = {
-      speak(u: SpeechSynthesisUtterance) {
-        w.__spoken.push(u.text);
-        if (auto) setTimeout(() => u.onend?.(new Event("end") as SpeechSynthesisEvent), 20);
-      },
-      cancel() {},
-      getVoices: () => [],
-    };
-    Object.defineProperty(window, "speechSynthesis", { value: stub, configurable: true });
-  }, autoEnd);
+async function stubSpeech(
+  page: Page,
+  { autoEnd, localVoice = true }: { autoEnd: boolean; localVoice?: boolean },
+) {
+  await page.addInitScript(
+    ([auto, local]) => {
+      const w = window as unknown as { __spoken: string[]; __voices: string[] };
+      w.__spoken = [];
+      w.__voices = [];
+      // Real Chrome only accepts a genuine SpeechSynthesisVoice on an utterance, so the
+      // utterance is stubbed along with the engine.
+      class FakeUtterance {
+        text: string;
+        lang = "";
+        voice: { name: string } | null = null;
+        onend: ((e: Event) => void) | null = null;
+        onerror: ((e: Event) => void) | null = null;
+        constructor(text: string) {
+          this.text = text;
+        }
+      }
+      Object.defineProperty(window, "SpeechSynthesisUtterance", {
+        value: FakeUtterance,
+        configurable: true,
+      });
+      const voices = [
+        { name: "Network", lang: "en-US", localService: false, default: true },
+        ...(local
+          ? [{ name: "On-device", lang: "en-US", localService: true, default: false }]
+          : []),
+      ];
+      const stub = {
+        speak(u: FakeUtterance) {
+          w.__spoken.push(u.text);
+          w.__voices.push(u.voice?.name ?? "");
+          if (auto) setTimeout(() => u.onend?.(new Event("end")), 20);
+        },
+        cancel() {},
+        getVoices: () => voices,
+      };
+      Object.defineProperty(window, "speechSynthesis", { value: stub, configurable: true });
+    },
+    [autoEnd, localVoice] as const,
+  );
 }
 
 const spoken = (page: Page) =>
@@ -108,5 +138,24 @@ test("with no tap yet, voice stays quiet and the hold runs as normal", async ({ 
   });
   await start(page, true);
   await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
+  expect(await spoken(page)).toEqual([]);
+});
+
+test("the coach only uses an on-device voice", async ({ page }) => {
+  await stubSpeech(page, { autoEnd: true });
+  await start(page);
+  await page.getByRole("button", { name: "Voice coach" }).click();
+  await expect.poll(() => spoken(page)).toHaveLength(1);
+  const used = await page.evaluate(() => (window as unknown as { __voices: string[] }).__voices);
+  expect(used).toEqual(["On-device"]);
+});
+
+test("with only network voices the coach stays quiet and says why", async ({ page }) => {
+  await stubSpeech(page, { autoEnd: true, localVoice: false });
+  await start(page);
+  await page.getByRole("button", { name: "Voice coach" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "no on-device voice" })).toBeVisible();
+  await page.getByRole("button", { name: "Skip" }).click();
+  await expect(stepHeading(page)).toHaveText(SECOND.name);
   expect(await spoken(page)).toEqual([]);
 });

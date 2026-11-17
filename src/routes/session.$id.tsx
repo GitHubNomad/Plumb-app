@@ -13,12 +13,19 @@ import {
 import {
   calloutFor,
   canSpeakNow,
+  localVoiceAvailable,
   speak,
   speechSupported,
   stopSpeaking,
   utteranceForStep,
 } from "@/lib/plumb/speech";
-import { computeStreak, selectTodayClearance, usePlumb } from "@/lib/plumb/store";
+import {
+  BACKUP_REMINDER_EVERY,
+  computeStreak,
+  selectTodayClearance,
+  sessionsSinceBackup,
+  usePlumb,
+} from "@/lib/plumb/store";
 import type { Clearance, Exercise, Program } from "@/lib/plumb/types";
 import { useWakeLock } from "@/lib/plumb/wake-lock";
 import { cn } from "@/lib/utils";
@@ -35,7 +42,19 @@ function SessionPage() {
   const setClearance = usePlumb((s) => s.setClearance);
   const voice = usePlumb((s) => s.voice);
   const setVoice = usePlumb((s) => s.setVoice);
+  // The coach only speaks with an on-device voice; say so instead of going silently quiet.
+  const [noLocalVoice, setNoLocalVoice] = useState(false);
+  useEffect(() => {
+    let live = true;
+    if (voice) void localVoiceAvailable().then((ok) => live && setNoLocalVoice(!ok));
+    return () => {
+      live = false;
+    };
+  }, [voice]);
   const earbuds = usePlumb((s) => s.earbuds);
+  const lockScreenDetail = usePlumb((s) => s.lockScreenDetail);
+  const lastBackupAt = usePlumb((s) => s.lastBackupAt);
+  const setLockScreenDetail = usePlumb((s) => s.setLockScreenDetail);
   const setEarbuds = usePlumb((s) => s.setEarbuds);
   // The current step registers its controls here; earbud buttons call through it.
   const controls = useRef<EarbudControls | null>(null);
@@ -61,11 +80,13 @@ function SessionPage() {
     // Once, when the finish screen appears; toggling voice there shouldn't repeat it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [finished]);
+  // The lock screen is visible to anyone near the phone, so by default it names nothing.
+  const stepCount = adapted?.steps.length ?? 0;
   useEarbudControls(
     earbuds && !!adapted && !finished,
     controls,
-    stepName ?? "",
-    raw?.title ?? "Plumb",
+    lockScreenDetail ? (stepName ?? "") : "Plumb session",
+    lockScreenDetail ? (raw?.title ?? "Plumb") : `Step ${step + 1} of ${stepCount}`,
   );
 
   if (!raw) {
@@ -129,6 +150,7 @@ function SessionPage() {
     const held = doneIds.length > 0 || Object.values(status).includes("done");
     const streak = computeStreak(logs);
     const skipCount = skippedIds.length;
+    const sinceBackup = sessionsSinceBackup(logs, lastBackupAt);
     return (
       <main className="flex min-h-dvh flex-col bg-pine px-6 py-8 text-pine-fg">
         <p className="text-[11px] font-medium tracking-widest text-pine-fg/60 uppercase">
@@ -142,6 +164,14 @@ function SessionPage() {
             ? `${raw.title} is done${skipCount ? `, ${skipCount} step${skipCount === 1 ? "" : "s"} skipped` : ""}. Streak is ${streak} day${streak === 1 ? "" : "s"}.`
             : "Tap-throughs don't move the streak. Come back when you can hold one."}
         </p>
+        {held && sinceBackup >= BACKUP_REMINDER_EVERY ? (
+          <Link
+            to="/progress"
+            className="mt-4 inline-flex min-h-11 items-center text-sm font-semibold text-pine-fg underline underline-offset-2"
+          >
+            {sinceBackup} sessions since your last backup. Back up now
+          </Link>
+        ) : null}
         <div className="mt-auto flex flex-col gap-3">
           <Link
             to="/"
@@ -212,6 +242,27 @@ function SessionPage() {
           </button>
         ) : null}
       </header>
+
+      {earbuds && mediaSessionSupported() ? (
+        <div className="px-5 pt-2">
+          <button
+            type="button"
+            onClick={() => setLockScreenDetail(!lockScreenDetail)}
+            aria-pressed={lockScreenDetail}
+            aria-label="Exercise names on lock screen"
+            className="min-h-11 text-sm text-muted underline-offset-2 hover:underline"
+          >
+            Exercise names on lock screen: {lockScreenDetail ? "on" : "off"}
+          </button>
+        </div>
+      ) : null}
+
+      {voice && noLocalVoice ? (
+        <p className="px-5 pt-2 text-sm text-muted" role="status">
+          This phone has no on-device voice, so the coach stays quiet. Add one in Android Settings,
+          Text-to-speech output.
+        </p>
+      ) : null}
 
       {session.cautionNote ? (
         <p className="px-5 pt-2 text-sm text-copper">{session.cautionNote}</p>

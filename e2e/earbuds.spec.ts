@@ -6,17 +6,23 @@ const DAY = new Date("2026-09-25T09:00:00");
 const PROGRAM = programById("morning-plumb")!;
 const [FIRST, SECOND] = PROGRAM.steps;
 
-type Probe = { handlers: Record<string, (() => void) | null>; plays: number; title: string };
+type Probe = {
+  handlers: Record<string, (() => void) | null>;
+  plays: number;
+  title: string;
+  album: string;
+};
 
 /** Records Media Session handlers and audio plays instead of touching real media. */
 async function stubMedia(page: Page, { refuseFirstPlay = false } = {}) {
   await page.addInitScript((refuse) => {
-    const probe: Probe = { handlers: {}, plays: 0, title: "" };
+    const probe: Probe = { handlers: {}, plays: 0, title: "", album: "" };
     (window as unknown as { __media: Probe }).__media = probe;
     const ms = {
       playbackState: "none",
-      set metadata(m: { title: string } | null) {
+      set metadata(m: { title: string; album: string } | null) {
         probe.title = m?.title ?? "";
+        probe.album = m?.album ?? "";
       },
       get metadata() {
         return null;
@@ -47,6 +53,7 @@ const probe = (page: Page) =>
       actions: Object.keys(p.handlers).filter((k) => p.handlers[k]),
       plays: p.plays,
       title: p.title,
+      album: p.album,
     };
   });
 
@@ -71,7 +78,7 @@ test("off by default: no handlers, no audio", async ({ page }) => {
     "aria-pressed",
     "false",
   );
-  expect(await probe(page)).toEqual({ actions: [], plays: 0, title: "" });
+  expect(await probe(page)).toEqual({ actions: [], plays: 0, title: "", album: "" });
 });
 
 test("earbud buttons pause, skip, and go back", async ({ page }) => {
@@ -81,7 +88,9 @@ test("earbud buttons pause, skip, and go back", async ({ page }) => {
     .poll(async () => (await probe(page)).actions.sort())
     .toEqual(["nexttrack", "pause", "play", "previoustrack"]);
   expect((await probe(page)).plays).toBeGreaterThan(0);
-  expect((await probe(page)).title).toBe(FIRST.name);
+  // Private by default: the lock screen names nothing.
+  expect((await probe(page)).title).toBe("Plumb session");
+  expect((await probe(page)).album).toBe(`Step 1 of ${PROGRAM.steps.length}`);
 
   await press(page, "pause");
   await expect(page.getByRole("button", { name: "Resume" })).toBeVisible();
@@ -91,7 +100,9 @@ test("earbud buttons pause, skip, and go back", async ({ page }) => {
   // Mid-hold, next is a skip, same as the screen offers.
   await press(page, "nexttrack");
   await expect(stepHeading(page)).toHaveText(SECOND.name);
-  await expect.poll(async () => (await probe(page)).title).toBe(SECOND.name);
+  await expect
+    .poll(async () => (await probe(page)).album)
+    .toBe(`Step 2 of ${PROGRAM.steps.length}`);
 
   await press(page, "previoustrack");
   await expect(stepHeading(page)).toHaveText(FIRST.name);
@@ -123,4 +134,19 @@ test("remembered on, but refused before a tap: the first tap starts it", async (
   expect((await probe(page)).plays).toBe(0);
   await page.getByRole("button", { name: "Pause" }).click();
   await expect.poll(async () => (await probe(page)).plays).toBeGreaterThan(0);
+});
+
+test("exercise names reach the lock screen only when asked, and the choice sticks", async ({
+  page,
+}) => {
+  await start(page);
+  await page.getByRole("button", { name: "Earbud controls" }).click();
+  await expect.poll(async () => (await probe(page)).title).toBe("Plumb session");
+  const toggle = page.getByRole("button", { name: "Exercise names on lock screen" });
+  await expect(toggle).toHaveAttribute("aria-pressed", "false");
+  await toggle.click();
+  await expect.poll(async () => (await probe(page)).title).toBe(FIRST.name);
+  expect((await probe(page)).album).toBe(PROGRAM.title);
+  const raw = await page.evaluate((k) => localStorage.getItem(k), STORE_KEY);
+  expect(JSON.parse(raw!).state.lockScreenDetail).toBe(true);
 });
