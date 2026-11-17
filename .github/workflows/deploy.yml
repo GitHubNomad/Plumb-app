@@ -109,14 +109,19 @@ jobs:
       - name: Live page matches the build and carries its CSP
         run: |
           for path in / /session/spine-line; do
-            curl -sf --compressed --retry 5 --retry-delay 3 -D headers.txt -o live.html "https://plumb.isocline.ai$path"
+            # Ask like a phone browser: Cloudflare only injects some scripts (e.g. Web Analytics) into
+            # requests that look like one. --retry-all-errors also covers TLS blips (curl exit 35).
+            curl -sf --compressed --retry 5 --retry-delay 3 --retry-all-errors \
+              -A "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Mobile Safari/537.36" \
+              -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" \
+              -D headers.txt -o live.html "https://plumb.isocline.ai$path"
             if ! grep -qi '^content-security-policy:.*connect-src' headers.txt; then
               echo "::error::$path is served without Plumb's Content-Security-Policy"
               exit 1
             fi
             if ! cmp -s live.html dist/client/index.html; then
               echo "::error::$path differs from the built index.html; something between the build and the phone is changing the page (a Cloudflare zone feature injecting a script?)"
-              diff <(sed 's/></>\n</g' dist/client/index.html) <(sed 's/></>\n</g' live.html) | head -40
+              diff -a <(sed 's/></>\n</g' dist/client/index.html) <(sed 's/></>\n</g' live.html) | head -40
               exit 1
             fi
             echo "$path: CSP present, page identical to the build"
